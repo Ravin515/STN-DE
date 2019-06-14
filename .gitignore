@@ -259,3 +259,30 @@ paket-files/
 # Python Tools for Visual Studio (PTVS)
 __pycache__/
 *.pyc
+/01-LnAcpt/user.wnwk.sp.Rdata
+/01-LnAcpt/TRD_Dalyr1.csv
+/01-LnAcpt/TRD_Dalyr.csv
+/01-LnAcpt/survival curve.png
+/01-LnAcpt/stck.csv
+/01-LnAcpt/rst.Loss-Holdsample.doc
+/01-LnAcpt/rst.ln.doc
+/01-LnAcpt/rst.felm.doc
+/01-LnAcpt/rst.decr.stst.doc
+/01-LnAcpt/rst.cox.doc
+/01-LnAcpt/r.cube.ret.1803.Rdata
+/01-LnAcpt/r.cube.rb.1803.Rdata
+/01-LnAcpt/r.cube.info.1803.Rdata
+/01-LnAcpt/Momentum.csv
+/01-LnAcpt/f.user.stock.mst.1803.Rdata
+/01-LnAcpt/f.user.nwk.Rdata
+/01-LnAcpt/f.surv.Rdata
+/01-LnAcpt/f.surv.flw.Rdata
+/01-LnAcpt/f.nwl.Rdata
+/01-LnAcpt/f.hold.price.Rdata
+/01-LnAcpt/f.cubelife.mst.1803.Rdata
+/01-LnAcpt/f.a.stock.Rdata
+/01-LnAcpt/dstk.csv
+/01-LnAcpt/DE.png
+/01-LnAcpt/cu.Rdata
+/01-LnAcpt/a.Rmd
+/01-LnAcpt/rst.ln.files
