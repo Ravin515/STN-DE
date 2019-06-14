@@ -37,7 +37,7 @@ f.dscrp.ststc[issale == 1, isgain := ifelse(hold.price - Clsprc < 0, 1, 0)
 
 #stargazer(ststc.all.trade, type = "html", out = "ststc.all.trade.doc")
 
-# Pre-follow
+# Before follow first portfolio
 pre.follow.trade <- f.dscrp.ststc[pre.follow == 1]
 pre.follow.trade[, ':='(trade.num = .N, trade.time = difftime(max(date), min(date), units = "weeks"), follow.date = as.Date(follow.date)), by = .(cube.symbol)
     ][issale == 1, trade.num.sale := .N, by = .(cube.symbol)
@@ -54,7 +54,7 @@ ststc.pre.follow <- pre.follow.trade[, unique(.SD), by = .(cube.symbol), .SDcol 
 ststc.pre.follow <- na.omit(ststc.pre.follow[, .SD[, -c(2, 4)]]) %>% unique()
 
 
-# Pro-follow
+# After follow first portfolio
 pro.follow.trade <- f.dscrp.ststc[pro.follow == 1 & date - as.Date(follow.date) <= pre.period]
 pro.follow.trade[, ':='(trade.num = .N, trade.time = difftime(max(date), min(date), units = "weeks"), follow.date = as.Date(follow.date)), by = .(cube.symbol)
     ][issale == 1, trade.num.sale := .N, by = .(cube.symbol)
@@ -73,41 +73,7 @@ ststc.pre.follow[, group := "pre.follow"]
 ststc.pro.follow[, group := "pro.follow"]
 ststc <- rbindlist(list(ststc.pre.follow, ststc.pro.follow), use.names = T)
 
-# Both-side
-both.trade <- f.dscrp.ststc[pre.follow == 1 | (pro.follow == 1 & date - as.Date(follow.date) <= pre.period)]
-both.trade[, ':='(trade.num = .N, trade.time = difftime(max(date), min(date), units = "weeks"), follow.date = as.Date(follow.date)), by = .(cube.symbol)
-    ][issale == 1, trade.num.sale := .N, by = .(cube.symbol)
-    ][isgain == 1, trade.num.gain := .N, by = .(cube.symbol)
-    ]
-
-ststc.both <- both.trade[, unique(.SD), by = .(cube.symbol), .SDcol = colnames(pro.follow.trade)[c(5, 22:25)]
-    ][, trade.time := as.character(trade.time) %>% as.numeric()
-    ][!is.na(trade.num.sale), trade.sale.hold.time := mean(hold.time), by = .(cube.symbol)
-    ][!is.na(trade.num.gain), trade.gain.hold.time := mean(hold.time), by = .(cube.symbol)
-    ][, group := "both.side"
-    ]
-
-ststc.both <- na.omit(ststc.both[, .SD[, - c(2, 4)]]) %>% unique()
-ststc.mg <- rbindlist(list(ststc.both, ststc), use.names = T)
-
-# Full-sample
-f.dscrp.ststc[, ':='(trade.num = .N, trade.time = difftime(max(date), min(date), units = "weeks"), follow.date = as.Date(follow.date)), by = .(cube.symbol)
-    ][issale == 1, trade.num.sale := .N, by = .(cube.symbol)
-    ][isgain == 1, trade.num.gain := .N, by = .(cube.symbol)
-    ]
-
-ststc.full <- f.dscrp.ststc[, unique(.SD), by = .(cube.symbol), .SDcol = colnames(pro.follow.trade)[c(5, 22:25)]
-    ][, trade.time := as.character(trade.time) %>% as.numeric()
-    ][!is.na(trade.num.sale), trade.sale.hold.time := mean(hold.time), by = .(cube.symbol)
-    ][!is.na(trade.num.gain), trade.gain.hold.time := mean(hold.time), by = .(cube.symbol)
-    ][, group := "full.sample"]
-ststc.full <- na.omit(ststc.full[, .SD[, - c(2, 4)]]) %>% unique()
-ststc.mg <- rbindlist(list(ststc.full, ststc.mg), use.names = T)
-
-library(compareGroups)
-a <- compareGroups(group ~ trade.num + trade.num.sale + trade.num.gain + trade.sale.hold.time + trade.gain.hold.time, data = ststc.mg, byrow = T) %>% createTable(show.ratio = T)
-plot(compareGroups(group ~ trade.num + trade.num.sale + trade.num.gain + trade.sale.hold.time + trade.gain.hold.time, data = ststc.mg), bivar = TRUE,
-    file = "a", type = "png")
+a <- compareGroups(group ~ trade.num + trade.num.sale + trade.num.gain + trade.sale.hold.time + trade.gain.hold.time, data = ststc) %>% createTable(show.n = T)
 export2word(a, file = 'a.doc', which.table = "descr")
 export2md(a, file = 'a.doc', which.table = "both")
 stargazer(a, out = "a.doc")

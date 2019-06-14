@@ -65,3 +65,52 @@ d <- f.surv.early[, unique(cube.symbol)
 x <- f.surv.early[, unique(cube.symbol)] %>% as.data.table()
 y <- f.surv.late[, unique(cube.symbol)] %>% as.data.table()
 z <- x[y, on = ".", nomatch = 0]
+
+# 07-Learning
+a <- f.nwl.cntr[!is.na(out) & date == "2018-03-27"
+    ][, .(sp.out = unlist(str_split(out, ','))), keyby = .(cube.symbol)
+    ][, id := seq(1, .N, by = 1)
+    ][, net.out := str_c(cube.symbol, sp.out, sep = ','), keyby = .(id)]
+g <- graph_(cbind(a$cube.symbol, a$sp.out), from_edgelist(), directed = FALSE)
+v <- page_rank(g)
+value <- setDT(as.data.frame(v$vector), keep.rownames = TRUE)
+setnames(value, 1:2, c("sp.out", "value"))
+int <- value[a, on = .(sp.out), nomatch = NA]
+ln.cntr <- int[, .(ln.cntr = mean(value)), keyby = .(cube.symbol)]
+
+# 09-Odean
+a <- f.surv.flw[cube.symbol == "SP1000002"
+    ][order(date)]
+sadd <- function(x, y) {
+    if (length(x) == 1) {
+        x
+    }
+    else {
+        if (y == -1) {
+        Reduce(setdiff, Reduce(union, x, accumulate = T))
+        }
+        else {
+            Reduce(union, x, accumulate = T)
+        }
+    }
+}
+
+a[, stck.prtfl := {
+    stck <- stck;
+    num.dymc <- num.dymc;
+
+    sadd <- function(n, stck, num.dymc) {
+        if (num.dymc[n] == 0) {
+            a <- Reduce(union, stck, accumulate = T)
+        } else {
+            a <- Reduce(union, stck, accumulate = T)
+            a[-n]
+        }
+        a
+    };
+    list(a)
+}]
+
+b <- a[['stck.prtfl']]
+d <- b[[2]]
+a[ppr.gain == 1, ppr.gain.stck := sadd(stck)]

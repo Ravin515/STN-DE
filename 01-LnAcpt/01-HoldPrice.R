@@ -16,10 +16,18 @@ sp.rb.ef<- sp.rb[, diff := c(0, diff(issale)), keyby = .(cube.symbol, stock.symb
     ][is.na(no), .(id, stock.name, stock.symbol, price, target.weight, proactive, prev.weight.adjusted, cube.symbol, cube.type, created.at, issale)
     ][!is.na(target.weight)]
 
+# clean the data with wierd prev.weight.adjusted
+prblm <- unique(sp.rb.ef[prev.weight.adjusted < 0, .(cube.symbol, stock.symbol)], by = c("cube.symbol", "stock.symbol"))
+lct <- prblm[sp.rb.ef, on = .(cube.symbol, stock.symbol), nomatch = 0]
+a <- lct[, .(id = id, tag = 1)
+    ][sp.rb.ef, on = 'id']
+sp.rb.ef <- a[is.na(tag)
+    ][, tag := NULL
+    ][, issale := ifelse((target.weight < prev.weight.adjusted), 1, 0)]
+rm(a, lct)
 
-sp.rb.ef[sp.rb.ef[issale == 0, head(.SD, 1), keyby = .(cube.symbol, stock.symbol)
-    ][, hold.price := price
-], on = "id"]
+# delete duplicated id
+sp.rb.ef <- unique(sp.rb.ef, by = "id")
 
 #The function of calculating the hold price
 f.hold.price <- sp.rb.ef[, hold.price := {
