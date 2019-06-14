@@ -4,7 +4,6 @@ library(Matrix)
 library(lfe)
 library(igraph)
 library(stargazer)
-library(igraph)
 
 # Calculate learning intensity
 f.nwl.ints <- user.wnwk.sp[, ":="(date = follow.date, cube.symbol = from.cube.symbol)
@@ -53,7 +52,7 @@ rm(grph, pgrk_grph)
 setnames(p, 2:3, c("sp.out", "ln.cntr"))
 
 pg_rnk <- p[pg_rk, on = .(sp.out, date), nomatch = NA]
-f.nwl.cntr <- pg_rnk[, .(ln.cntr =sum(ln.cntr)), keyby = .(cube.symbol, date)]
+f.nwl.cntr <- pg_rnk[, .(ln.cntr = mean(ln.cntr)), keyby = .(cube.symbol, date)]
 rm(p, pg_rk, pg_rnk, tim, user.wnwk.sp)
 
 f.nwl <- f.nwl.cntr[f.nwl.ints, on = .(cube.symbol, date), nomatch = NA
@@ -63,63 +62,20 @@ f.nwl <- f.nwl[, str_c("ln.cntr", 1, sep = ".lag") := shift(ln.cntr, n = 1, type
 f.nwl[, .SD[.N], by = .(cube.symbol, date)]
 save(f.nwl, file = 'f.nwl.Rdata')
 
-# import momentum variable
-ld(f.nwl)
-f.mmt <- fread("Momentum.csv", encoding = "UTF-8")
-setnames(f.mmt, 1:2, c("date", "mmt"))
-f.mmt[, date := str_replace_all(date, "/", "-")
-    ][, date := as.Date(date, "%Y-%m-%d")]
-f.nwl <- f.mmt[f.nwl, on = "date", nomatch = 0]
-f.nwl[is.na(x), ln.ints := 1
-    ][, ln.qlty := ln.cntr * ln.ints
-    ][order(cube.symbol, date)
-    ][, str_c("ln.qlty", 1, sep = ".lag") := shift(ln.qlty, n = 1, type = 'lag'), keyby = .(cube.symbol, stck)]
+f.nwl.rbst1 <- f.nwl[f.cube, on = .(cube.symbol), nomatch = 0]
+f.nwl.rbst2 <- f.nwl[f.cube.DE, on = .(cube.symbol), nomatch = 0]
 
-# import cubelife to calculate trade period for per trader
-ld(f.cubelife.mst.1803)
-f.nwl <- f.cubelife.mst.1803[f.nwl, on = .(cube.symbol), nomatch = 0]
-f.nwl[, trd.prid := as.numeric(difftime(date, start, units = "days"))/7]
+#rst.ln1 <- f.nwl[ln.ints != 0, felm(issale ~ gain + hldt.ls.7 + I(gain*hldt.ls.7)+ log(ln.ints) + I(log(ln.ints) * gain*hldt.ls.7) | cube.symbol + stck + hold.time)]
+#rst.ln2 <- f.nwl[ln.cntr != 0, felm(issale ~ gain + log(ln.cntr) + I(log(ln.cntr) * gain) | cube.symbol + stck + hold.time)]
+#rst.ln3 <- f.nwl[ln.ints != 0, felm(issale ~ gain + log(ln.ints) + I(log(ln.ints) * gain) + log(ln.cntr) + I(log(ln.cntr) * gain) | cube.symbol + stck + hold.time)]
+rst.ln4 <- a[ln.ints != 0, felm(disp ~ second.half| cube.symbol + )]
+rst.ln5 <- f.nwl.rbst1[, felm(issale ~ I(gain) + I(ln.cntr * 1000) + I(ln.cntr.lag1 * 1000) + I(ln.cntr * 1000 * gain) + I(ln.cntr.lag1 * 1000 * gain) | cube.symbol + stck + hold.time)]
+rst.ln6 <- f.nwl.rbst1[ln.ints != 0, felm(issale ~ I(gain * hldt.ls.7) + log(ln.ints) + I(log(ln.ints) * gain * hldt.ls.7) + log(ln.cntr) + I(log(ln.cntr) * gain * hldt.ls.7) | cube.symbol + stck + hold.time)]
 
-# import f.hold.price to calculate trade number per day for per trader
-ld(f.hold.price)
-f.hold.price <- f.hold.price[order(cube.symbol, created.at)
-    ][, tag := 1
-    ][, date := as.character(created.at)
-    ][, date := as.Date(str_extract(date, '.{1,10}'), "%Y-%m-%d")]
+rst.ln7 <- f.nwl.rbst2[ln.ints != 0, felm(issale ~ gain + log(ln.ints) + I(log(ln.ints) * gain) | cube.symbol + stck + hold.time)]
+rst.ln8 <- f.nwl.rbst2[, felm(issale ~ I(gain) + I(ln.cntr * 1000) + I(ln.cntr.lag1 * 1000) + I(ln.cntr * 1000 * gain) + I(ln.cntr.lag1 * 1000 * gain) | cube.symbol + stck + hold.time)]
+rst.ln9 <- f.nwl.rbst2[ln.ints != 0, felm(issale ~ gain + log(ln.ints) + I(log(ln.ints) * gain) + log(ln.cntr*100) + I(log(ln.cntr*100) * gain) | cube.symbol + stck + hold.time)]
 
-f.trd.d <- f.hold.price[, .(date = seq(min(date), max(date), by = "day")), by = .(cube.symbol)]
-
-f.trd.d <- f.hold.price[, .(cube.symbol, date, tag)
-    ][f.trd.d, on = .(cube.symbol, date)]
-f.trd.d <- f.trd.d[is.na(tag), tag := 0
-    ][, .(trd.num = sum(tag)), by = .(cube.symbol, date)]
-f.trd.d[, trd.num := cumsum(trd.num)/100, by = .(cube.symbol)]
-
-f.nwl <- f.trd.d[f.nwl, on = .(cube.symbol, date)]
-
-rst.ln1 <- f.nwl[, felm(issale ~ gain + I(gain*ln.cntr) | cube.symbol + stck + hold.time)]
-rst.ln2 <- f.nwl[, felm(issale ~ gain + I(gain * ln.cntr) + mmt| cube.symbol + stck + hold.time)]
-rst.ln3 <- f.nwl[, felm(issale ~ gain + I(gain*ln.cntr)  + mmt + I(trd.prid*7/365) | cube.symbol + stck + hold.time)]
-rst.ln4 <- f.nwl[, felm(issale ~ gain + I(gain * ln.cntr) + mmt + I(trd.num/10) | cube.symbol + stck + hold.time)]
-rst.ln5 <- f.nwl[, felm(issale ~ gain + I(gain * ln.cntr) + mmt + I(trd.prid*7/365) + I(trd.num/10) | cube.symbol + stck + hold.time)]
-
-rst.ln6 <- f.nwl[, felm(issale ~ gain + I(gain * ln.ints/1000) | cube.symbol + stck + hold.time)]
-rst.ln7 <- f.nwl[, felm(issale ~ gain + I(gain * ln.ints/1000) + mmt | cube.symbol + stck + hold.time)]
-rst.ln8 <- f.nwl[, felm(issale ~ gain + I(gain * ln.ints/1000) + mmt + I(trd.prid*7/365) | cube.symbol + stck + hold.time)]
-rst.ln9 <- f.nwl[, felm(issale ~ gain + I(gain * ln.ints/1000) + mmt + I(trd.num/10) | cube.symbol + stck + hold.time)]
-rst.ln10 <- f.nwl[, felm(issale ~ gain + I(gain * ln.ints/1000) + mmt + I(trd.prid*7/365) + I(trd.num/10) | cube.symbol + stck + hold.time)]
-
-list(rst.ln1, rst.ln2, rst.ln3, rst.ln4, rst.ln5, rst.ln6, rst.ln7, rst.ln8, rst.ln9, rst.ln10) %>%
-    stargazer(out = "rst.ln.doc",
-        type = "html",
-        t.auto = T,
-        title = "Full Sample",
-        dep.var.caption = "Dependent Variable: Sale",
-        dep.var.labels.include = F,
-        #column.separate = c(3, 3, 3),
-        #column.labels = "Full Sample", 
-        #covariate.labels = c("Gain", "Gain*Quality", "Gain*Quality*Hold-7-day", "Momentum", "Gain*Intensity", "Gain*Intensity*Hold-7-day"),
-        omit.stat = c("LL", "ser", "rsq", "res.dev"),
-        model.names = F,
-        single.row = F,
-        add.lines = list(c("Cube.symbol FE", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes"), c("Hold period FE", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes"), c("Stock FE", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes")))
+list(rst.ln1, rst.ln2, rst.ln3, rst.ln4, rst.ln5, rst.ln6, rst.ln7, rst.ln8, rst.ln9) %>%
+    stargazer(out = "rst.ln.doc", type = "html", t.auto = T, title = "Full Sample", dep.var.caption = "Dependent Variable: Sale", dep.var.labels.include = F, column.separate = c(3, 3, 3), column.labels = c("Full Sample", "BiTrade Sample", "BiTradeDE Sample"), covariate.labels = c("Gain", "ln.ints", "Gain*ln.ints", "ln.cntr", "Gain*ln.cntr"),
+     omit.stat = c("LL", "ser"), model.names = F, single.row = F, add.lines = list(c("cube.symbol", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes"), c("hold.time", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes"), c("stock", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes")))

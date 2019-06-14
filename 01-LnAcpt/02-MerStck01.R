@@ -28,7 +28,7 @@ CJ <- f.a.stock[order(cube.symbol, stck, created.at)
 
 sp.rb.cj <- f.a.stock[CJ, on = .(cube.symbol, stck, date), nomatch = NA
     ][order(cube.symbol, stck, date)]
-a <- sp.rb.dl[sp.rb.cj, on = .(date, stck), nomatch = NA]
+a <- sp.rb.dl[sp.rb.cj, on = .(date, stck), nomatch = 0]
 sp.rb <- a[!is.na(Clsprc), .(Clsprc, stck, date, price, cube.symbol, created.at, issale, hold.price, target.weight, prev.weight.adjusted)]
 rm(CJ, f.a.stock, sp.rb.cj, sp.rb.dl, a)
 
