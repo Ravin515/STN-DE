@@ -286,3 +286,7 @@ __pycache__/
 /01-LnAcpt/cu.Rdata
 /01-LnAcpt/a.Rmd
 /01-LnAcpt/rst.ln.files
+/02-Profit/r.cube.info.1803.Rdata
+/02-Profit/r.cube.rb.1803.Rdata
+/02-Profit/r.cube.ret.1803.Rdata
+*.Rdata
