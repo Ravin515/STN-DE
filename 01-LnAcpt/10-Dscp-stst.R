@@ -42,16 +42,19 @@ pre.follow.trade <- f.dscrp.ststc[pre.follow == 1]
 pre.follow.trade[, ':='(trade.num = .N, trade.time = difftime(max(date), min(date), units = "weeks"), follow.date = as.Date(follow.date)), by = .(cube.symbol)
     ][issale == 1, trade.num.sale := .N, by = .(cube.symbol)
     ][isgain == 1, trade.num.gain := .N, by = .(cube.symbol)
-    ]
+    ][is.na(isgain) & issale == 1, trade.num.loss := .N, by = .(cube.symbol)]
 
-ststc.pre.follow <- pre.follow.trade[, unique(.SD), by = .(cube.symbol), .SDcol = colnames(pre.follow.trade)[c(5, 22:25)]
-    ][, trade.time := as.character(trade.time) %>% as.numeric()
-    ][!is.na(trade.num.sale), trade.sale.hold.time := mean(hold.time), by = .(cube.symbol)
-    ][!is.na(trade.num.gain), trade.gain.hold.time := mean(hold.time), by = .(cube.symbol)
-    ]
+ststc.pre.follow <- pre.follow.trade[, trade.time := as.character(trade.time) %>% as.numeric()
+    ][!is.na(hold.time) & issale == 1 , trade.sale.hold.time := mean(hold.time), by = .(cube.symbol)
+    ][!is.na(hold.time) & issale == 1 & isgain == 1, trade.gain.hold.time := mean(hold.time), by = .(cube.symbol)
+    ][!is.na(hold.time) & issale == 1 & isgain == 0, trade.loss.hold.time := mean(hold.time), by = .(cube.symbol)
+    ][, unique(.SD), by = .(cube.symbol), .SDcol = colnames(pre.follow.trade)[c(5, 22:29)]]
 
 ## Every cube statistic
-ststc.pre.follow <- na.omit(ststc.pre.follow[, .SD[, -c(2, 4)]]) %>% unique()
+library(zoo)
+ststc.pre.follow <- ststc.pre.follow[, .SD[, - c(2, 4)]
+    ][, lapply(.SD, na.locf, na.rm = F, fromLast = T), by = .(cube.symbol)
+    ][, lapply(.SD, na.locf, na.rm = F), by = .(cube.symbol)] %>% unique()
 
 
 # After follow first portfolio
@@ -59,21 +62,25 @@ pro.follow.trade <- f.dscrp.ststc[pro.follow == 1 & date - as.Date(follow.date) 
 pro.follow.trade[, ':='(trade.num = .N, trade.time = difftime(max(date), min(date), units = "weeks"), follow.date = as.Date(follow.date)), by = .(cube.symbol)
     ][issale == 1, trade.num.sale := .N, by = .(cube.symbol)
     ][isgain == 1, trade.num.gain := .N, by = .(cube.symbol)
-    ]
+    ][is.na(isgain) & issale == 1, trade.num.loss := .N, by = .(cube.symbol)]
 
-ststc.pro.follow <- pro.follow.trade[, unique(.SD), by = .(cube.symbol), .SDcol = colnames(pro.follow.trade)[c(5, 22:25)]
-    ][, trade.time := as.character(trade.time) %>% as.numeric()
-    ][!is.na(trade.num.sale), trade.sale.hold.time := mean(hold.time), by = .(cube.symbol)
-    ][!is.na(trade.num.gain), trade.gain.hold.time := mean(hold.time), by = .(cube.symbol)
-    ]
+ststc.pro.follow <- pro.follow.trade[, trade.time := as.character(trade.time) %>% as.numeric()
+    ][!is.na(hold.time) & issale == 1, trade.sale.hold.time := mean(hold.time), by = .(cube.symbol)
+    ][!is.na(hold.time) & issale == 1 & isgain == 1, trade.gain.hold.time := mean(hold.time), by = .(cube.symbol)
+    ][!is.na(hold.time) & issale == 1 & isgain == 0, trade.loss.hold.time := mean(hold.time), by = .(cube.symbol)
+    ][, unique(.SD), by = .(cube.symbol), .SDcol = colnames(pro.follow.trade)[c(5, 22:29)]]
 ## Every cube statistic
-ststc.pro.follow <- na.omit(ststc.pro.follow[, .SD[, - c(2, 4)]]) %>% unique()
+ststc.pro.follow <- ststc.pro.follow[, .SD[, - c(2, 4)]
+    ][, lapply(.SD, na.locf, na.rm = F, fromLast = T), by = .(cube.symbol)
+    ][, lapply(.SD, na.locf, na.rm = F), by = .(cube.symbol)] %>% unique()
 
 ststc.pre.follow[, group := "pre.follow"]
 ststc.pro.follow[, group := "pro.follow"]
 ststc <- rbindlist(list(ststc.pre.follow, ststc.pro.follow), use.names = T)
+ststc[is.na(ststc)] <- 0
 
-a <- compareGroups(group ~ trade.num + trade.num.sale + trade.num.gain + trade.sale.hold.time + trade.gain.hold.time, data = ststc) %>% createTable(show.n = T)
+library(compareGroups)
+a <- compareGroups(group ~ trade.num + trade.num.sale + trade.num.gain + trade.num.loss + trade.sale.hold.time + trade.gain.hold.time + trade.loss.hold.time, data = ststc) %>% createTable(show.n = T)
 export2word(a, file = 'a.doc', which.table = "descr")
 export2md(a, file = 'a.doc', which.table = "both")
 stargazer(a, out = "a.doc")

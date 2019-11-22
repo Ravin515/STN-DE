@@ -36,28 +36,28 @@ ggDE[, Stage := as.character(Stage)
     ][, Stage := ifelse(Stage=="pre.follow", "pre-follow", "post-follow")]
 
 d.ttest <- ggplot(ggDE, aes(x = DE, colour = Stage, fill = Stage)) +
-    geom_line(stat = "density", size = 2) +
-    theme_grey() +
-    scale_colour_manual(values = c("#CC6666", "#7777DD")) +
-    labs(x = paste("\u03B2", "value", collapse = " "), y = "Density") +
-    scale_fill_manual(values = c("#CC6666", "#7777DD"),
-                                name = "Stage",
-                                breaks = c("post.follow", "pre.follow"),
-                                labels = c("post-follow", "pre-follow"))+
-    theme(
-            axis.title.x = element_text(size = 24, margin = margin(t = 20, r = 0, b = 20, l = 0)),
-            axis.title.y = element_text(size = 24, margin = margin(t = 0, r = 20, b = 0, l = 20)),
-            axis.text = element_text(size = 24),
-            panel.border = element_rect(linetype = 1, fill = NA),
-            legend.title = element_blank(),
-            legend.position = "bottom",
-            legend.direction = "horizontal",
-            legend.text = element_text(size = 24),
-            legend.key = element_rect(size = 0.5, colour = "black", fill = "white"),
-            legend.key.size = unit(1, 'cm'),
-            legend.spacing.x = unit(0.5, 'cm'),
-            legend.spacing.y = unit(2, 'cm'),
-            legend.box = "horizontal",
-            legend.box.background = element_rect(size = 1, colour = "black", fill = "white")
-                            )
+                            geom_line(stat = "density", size = 2) +
+                            theme_grey() +
+                            scale_colour_manual(values = c("#CC6666", "#7777DD")) +
+                            labs(x = paste("\u03B2", "value", collapse = " "), y = "Density") +
+                            scale_fill_manual(values = c("#CC6666", "#7777DD"),
+                                                        name = "Stage",
+                                                        breaks = c("post.follow", "pre.follow"),
+                                                        labels = c("post-follow", "pre-follow"))+
+                            theme(
+                                    axis.title.x = element_text(size = 24, margin = margin(t = 20, r = 0, b = 20, l = 0)),
+                                    axis.title.y = element_text(size = 24, margin = margin(t = 0, r = 20, b = 0, l = 20)),
+                                    axis.text = element_text(size = 24),
+                                    panel.border = element_rect(linetype = 1, fill = NA),
+                                    legend.title = element_blank(),
+                                    legend.position = "bottom",
+                                    legend.direction = "horizontal",
+                                    legend.text = element_text(size = 24),
+                                    legend.key = element_rect(size = 0.5, colour = "black", fill = "white"),
+                                    legend.key.size = unit(1, 'cm'),
+                                    legend.spacing.x = unit(0.5, 'cm'),
+                                    legend.spacing.y = unit(2, 'cm'),
+                                    legend.box = "horizontal",
+                                    legend.box.background = element_rect(size = 1, colour = "black", fill = "white")
+                                    )
 ggsave(d.ttest, device = "eps")

@@ -16,7 +16,7 @@ sp.rb.ef<- sp.rb[, diff := c(0, diff(issale)), keyby = .(cube.symbol, stock.symb
     ][is.na(no), .(id, stock.name, stock.symbol, price, target.weight, proactive, prev.weight.adjusted, cube.symbol, cube.type, created.at, issale)
     ][!is.na(target.weight)]
 
-# clean the data with wierd prev.weight.adjusted
+# clean the data with weird prev.weight.adjusted
 prblm <- unique(sp.rb.ef[prev.weight.adjusted < 0, .(cube.symbol, stock.symbol)], by = c("cube.symbol", "stock.symbol"))
 lct <- prblm[sp.rb.ef, on = .(cube.symbol, stock.symbol), nomatch = 0]
 a <- lct[, .(id = id, tag = 1)

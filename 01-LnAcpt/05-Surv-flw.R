@@ -94,8 +94,17 @@ rst.cox.l <- coxph(Surv(hold.time, issale == 1) ~ gain + hldt.ls.7 + I(gain * hl
 rst.cox <- coxph(Surv(hold.time, issale == 1) ~ gain + hldt.ls.7 + I(gain * first.half * hldt.ls.7) + I(gain * second.half * hldt.ls.7), data = f.main[first.half == 1 | (second.half == 1 & date - as.Date(follow.date) <= pre.period)])
 
 list(rst.cox.e, rst.cox.l, rst.cox) %>%
-    stargazer(out = "rst.cox.doc", type = "html", title = "Main Regression", dep.var.labels.include = F, covariate.labels = c("Gain", "Hold.week", "Gain*Hold.week", "Gain*Hold.week*Pre.follow", "Gain*Hold.week*Pro.follow"), column.labels = c("Pre-follow", "Pro-follow", "Full sample"),
-omit.stat = c("LL", "lr", "wald", "max.rsq", "logrank"), model.names = T, single.row = F)
+    stargazer(
+        out = "rst.cox.doc",
+        type = "html",
+        title = "Main Regression",
+        dep.var.labels.include = F,
+        covariate.labels = c("Gain", "Hold.week", "Gain*Hold.week", "Gain*Hold.week*Pre.follow", "Gain*Hold.week*Pro.follow"),
+        column.labels = c("Pre-follow", "Pro-follow", "Full sample"),
+        omit.stat = c("LL", "lr", "wald", "max.rsq", "logrank"),
+        model.names = T,
+        single.row = F
+    )
 
 rst.main.e <- f.main.early[, felm(issale ~ gain + I(gain * hldt.ls.7)| stck + cube.symbol + hold.time)] #%>% summary()
 rst.main.l <- f.main.late[, felm(issale ~ gain + I(gain * hldt.ls.7) | stck + cube.symbol + hold.time)] #%>% summary()
