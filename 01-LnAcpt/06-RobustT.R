@@ -81,10 +81,10 @@ f.prt <- f.surv.flw[hold.price.lst != 0, prt.chng := (Clsprc - hold.price.lst) /
 f.cube.early <- f.surv.early[, .(cube.symbol = unique(cube.symbol))]
 f.cube.late <- f.surv.late[, .(cube.symbol = unique(cube.symbol))]
 f.cube <- f.cube.early[f.cube.late, on = "cube.symbol", nomatch = 0]
-f.rbst3 <- f.cube[f.prt, on = "cube.symbol", nomatch = 0]
+f.rbst2 <- f.cube[f.prt, on = "cube.symbol", nomatch = 0]
 
 # 2.2 Regress
-rst.rbst3 <- f.rbst3[, felm(issale ~ I(gain * second.half) + second.half + gain | stck + cube.symbol + prt.chng + hold.time)] %>% summary()
+rst.rbst2 <- f.rbst2[, felm(issale ~ I(gain * second.half) + second.half + gain | stck + cube.symbol + prt.chng + hold.time)] %>% summary()
 
 # 3. Robust test3
 # Bull market and bear market test
@@ -115,17 +115,12 @@ f.main.late <- f.main[second.half == 1 & date - as.Date(follow.date) <= pre.peri
 # 3.3 Merge two tables
 f.rbst3 <- mkt.sit[, .(date.month, mkt_rf, mkt_rf_cum)
     ][f.main, on = "date.month"]
-f.rbst3[, tag := ifelse(mkt_rf_cum > 0, 1, 0)
-    ][, tag1 := ifelse(mkt_rf > 0, 1, 0)]
 
 # 3.4 Regression
-rst.rbst3.bull <- f.rbst3[mkt_rf_cum > 0, felm(issale ~ I(gain * second.half) + gain | cube.symbol + stck + hold.time)] # %>% summary() # bull
-rst.rbst3.bear <- f.rbst3[mkt_rf_cum < 0, felm(issale ~ I(gain * second.half) + gain | cube.symbol + stck + hold.time)] # %>% summary() # bear
-
-#f.rbst3[, felm(issale ~ I(gain * tag) + tag | cube.symbol + stck + hold.time)] # %>% summary()
-#f.rbst3[mkt_rf > 0, felm(issale ~ I(gain * second.half) + gain| cube.symbol + stck + hold.time)] %>% summary()
-#f.rbst3[mkt_rf < 0, felm(ishold ~ I(gain * second.half) + gain| cube.symbol + stck + hold.time)] %>% summary()
-#f.rbst3[, felm(issale ~ I(gain * tag1) + tag1 | cube.symbol + stck + hold.time)] %>% summary()
+rst.rbst3.bull <- f.rbst3[mkt_rf_cum > 0 & (first.half == 1 | second.half == 1 & date - as.Date(follow.date) <= pre.period), felm(issale ~ gain + second.half + I(gain * second.half) | cube.symbol + stck + hold.time)] # %>% summary() # bull
+rst.rbst3.bear <- f.rbst3[mkt_rf_cum < 0 & (first.half == 1 | second.half == 1 & date - as.Date(follow.date) <= pre.period), felm(issale ~ gain + second.half + I(gain * second.half) | cube.symbol + stck + hold.time)] # %>% summary() # bear
+rst.rbst3.bull1 <- f.rbst3[mkt_rf_cum > 0, felm(issale ~ gain + second.half + I(gain * second.half) | cube.symbol + stck + hold.time)]
+rst.rbst3.bear1 <- f.rbst3[mkt_rf_cum < 0, felm(issale ~ gain + second.half + I(gain * second.half) | cube.symbol + stck + hold.time)]
 
 
 
@@ -141,9 +136,9 @@ f.rbst4.late <- f.rbst4[second.half == 1]
 rm(f.cube.early, f.cube.late, f.cube)
 
 # 4.1.2 Regression
-lrst.rbst4.e <- f.rbst4.early[, felm(issale ~ loss | cube.symbol + stck + hold.time)]
-lrst.rbst4.l <- f.rbst4.late[, felm(issale ~ loss | cube.symbol + stck + hold.time)]
-lrst.rbst4 <- f.rbst4[, felm(issale ~ loss + I(loss * second.half) | cube.symbol + stck + hold.time)]
+rst.rbst4.e <- f.rbst4.early[, felm(issale ~ loss | cube.symbol + stck + hold.time)]
+rst.rbst4.l <- f.rbst4.late[, felm(issale ~ loss | cube.symbol + stck + hold.time)]
+rst.rbst4 <- f.rbst4[, felm(ishold ~ loss + I(loss * second.half) + second.half| cube.symbol + stck + hold.time)]
 
 ## 4.2.1 Select individuals before and after follow people both had DE 
 #f.surv.early.m <- f.surv.early[gain == 1 & ishold == 1, .(cube.symbol = unique(cube.symbol), d.e.g = 1)

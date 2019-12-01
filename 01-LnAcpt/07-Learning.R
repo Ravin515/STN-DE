@@ -68,7 +68,7 @@ f.nwl.rbst2 <- f.nwl[f.cube.DE, on = .(cube.symbol), nomatch = 0]
 #rst.ln1 <- f.nwl[ln.ints != 0, felm(issale ~ gain + hldt.ls.7 + I(gain*hldt.ls.7)+ log(ln.ints) + I(log(ln.ints) * gain*hldt.ls.7) | cube.symbol + stck + hold.time)]
 #rst.ln2 <- f.nwl[ln.cntr != 0, felm(issale ~ gain + log(ln.cntr) + I(log(ln.cntr) * gain) | cube.symbol + stck + hold.time)]
 #rst.ln3 <- f.nwl[ln.ints != 0, felm(issale ~ gain + log(ln.ints) + I(log(ln.ints) * gain) + log(ln.cntr) + I(log(ln.cntr) * gain) | cube.symbol + stck + hold.time)]
-rst.ln4 <- a[ln.ints != 0, felm(disp ~ second.half| cube.symbol + )]
+rst.ln4 <- a[ln.ints != 0, felm(disp ~ second.half| cube.symbol + stck + hold.time)]
 rst.ln5 <- f.nwl.rbst1[, felm(issale ~ I(gain) + I(ln.cntr * 1000) + I(ln.cntr.lag1 * 1000) + I(ln.cntr * 1000 * gain) + I(ln.cntr.lag1 * 1000 * gain) | cube.symbol + stck + hold.time)]
 rst.ln6 <- f.nwl.rbst1[ln.ints != 0, felm(issale ~ I(gain * hldt.ls.7) + log(ln.ints) + I(log(ln.ints) * gain * hldt.ls.7) + log(ln.cntr) + I(log(ln.cntr) * gain * hldt.ls.7) | cube.symbol + stck + hold.time)]
 
@@ -77,5 +77,16 @@ rst.ln8 <- f.nwl.rbst2[, felm(issale ~ I(gain) + I(ln.cntr * 1000) + I(ln.cntr.l
 rst.ln9 <- f.nwl.rbst2[ln.ints != 0, felm(issale ~ gain + log(ln.ints) + I(log(ln.ints) * gain) + log(ln.cntr*100) + I(log(ln.cntr*100) * gain) | cube.symbol + stck + hold.time)]
 
 list(rst.ln1, rst.ln2, rst.ln3, rst.ln4, rst.ln5, rst.ln6, rst.ln7, rst.ln8, rst.ln9) %>%
-    stargazer(out = "rst.ln.doc", type = "html", t.auto = T, title = "Full Sample", dep.var.caption = "Dependent Variable: Sale", dep.var.labels.include = F, column.separate = c(3, 3, 3), column.labels = c("Full Sample", "BiTrade Sample", "BiTradeDE Sample"), covariate.labels = c("Gain", "ln.ints", "Gain*ln.ints", "ln.cntr", "Gain*ln.cntr"),
-     omit.stat = c("LL", "ser"), model.names = F, single.row = F, add.lines = list(c("cube.symbol", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes"), c("hold.time", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes"), c("stock", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes")))
+    stargazer(out = "rst.ln.doc",
+        type = "html",
+        t.auto = T,
+        title = "Full Sample",
+        dep.var.caption = "Dependent Variable: Sale",
+        dep.var.labels.include = F,
+        column.separate = c(3, 3, 3),
+        column.labels = c("Full Sample", "BiTrade Sample", "BiTradeDE Sample"),
+        covariate.labels = c("Gain", "ln.ints", "Gain*ln.ints", "ln.cntr", "Gain*ln.cntr"),
+        omit.stat = c("LL", "ser"),
+        model.names = F,
+        single.row = F,
+        add.lines = list(c("cube.symbol", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes"), c("hold.time", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes"), c("stock", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes")))

@@ -89,9 +89,9 @@ d.main <- ggsurv(gg.main,
                             )
          
 
-rst.cox.e <- coxph(Surv(hold.time, issale == 1) ~ gain + hldt.ls.7 + I(gain * hldt.ls.7), data = f.main.early)
-rst.cox.l <- coxph(Surv(hold.time, issale == 1) ~ gain + hldt.ls.7 + I(gain * hldt.ls.7), data = f.main.late)
-rst.cox <- coxph(Surv(hold.time, issale == 1) ~ gain + hldt.ls.7 + I(gain * first.half * hldt.ls.7) + I(gain * second.half * hldt.ls.7), data = f.main[first.half == 1 | (second.half == 1 & date - as.Date(follow.date) <= pre.period)])
+rst.cox.e <- coxph(Surv(hold.time, issale == 1) ~ gain, data = f.main.early)
+rst.cox.l <- coxph(Surv(hold.time, issale == 1) ~ gain, data = f.main.late)
+rst.cox <- coxph(Surv(hold.time, issale == 1) ~ gain + second.half + I(gain * second.half), data = f.main)
 
 list(rst.cox.e, rst.cox.l, rst.cox) %>%
     stargazer(
@@ -106,9 +106,9 @@ list(rst.cox.e, rst.cox.l, rst.cox) %>%
         single.row = F
     )
 
-rst.main.e <- f.main.early[, felm(issale ~ gain + I(gain * hldt.ls.7)| stck + cube.symbol + hold.time)] #%>% summary()
-rst.main.l <- f.main.late[, felm(issale ~ gain + I(gain * hldt.ls.7) | stck + cube.symbol + hold.time)] #%>% summary()
-rst.main0 <- f.main[first.half == 1 | (second.half == 1 & date - as.Date(follow.date) <= pre.period), felm(issale ~ gain + I(gain * hldt.ls.7) + second.half + I(gain * second.half * hldt.ls.7) + mmt | cube.symbol + stck + hold.time)] #%>% summary()
+rst.main.e <- f.main.early[, felm(issale ~ gain + I(gain * hldt.ls.7) | stck + cube.symbol + hold.time)] %>% summary()
+rst.main.l <- f.main.late[, felm(issale ~ gain + I(gain * hldt.ls.7) | stck + cube.symbol + hold.time)] %>% summary()
+rst.main0 <- f.main[, felm(issale ~ gain + second.half + I(gain * second.half) | cube.symbol + stck + hold.time)] %>% summary()
 rst.main1 <- f.main[, felm(issale ~ gain + I(gain * hldt.ls.7) + second.half + I(gain * second.half * hldt.ls.7) | cube.symbol + stck + hold.time)]
 rst.main2 <- f.main[, felm(issale ~ gain + I(gain * hldt.ls.7) + second.half + I(gain * second.half * hldt.ls.7) + mmt | cube.symbol + stck + hold.time)]
 
