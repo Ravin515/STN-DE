@@ -293,3 +293,6 @@ __pycache__/
 /01-LnAcpt/return_month.csv
 /01-LnAcpt/b.doc
 *.Rmd
+*.doc
+/01-LnAcpt/rst.ln_files
+/01-LnAcpt/rst.main_files

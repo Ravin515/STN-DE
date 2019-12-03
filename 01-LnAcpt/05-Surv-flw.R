@@ -1,11 +1,6 @@
-library(GGally)
-library(survival)
-library(Matrix)
-library(lfe)
-library(texreg)
-library(stargazer)
-
+library(styleer)
 ld(f.surv.flw)
+
 #split the trades by the first-follow date
 f.surv.flw[, tag := ifelse(date - as.Date(follow.date) > 0, 1, 0), keyby = .(cube.symbol, stck)
     ][, first.half := ifelse(tag == 0, 1, 0)
@@ -19,34 +14,51 @@ f.surv.flw[, tag := ifelse(date - as.Date(follow.date) > 0, 1, 0), keyby = .(cub
     ][isgain == 'gain' & second.half == 1, state := "post-follow-gain"
     ][isgain == 'loss' & second.half == 1, state := "post-follow-loss"]
 
-# import momentum variable
+
+
+# add momentum variable
 f.mmt <- fread("Momentum.csv", encoding = "UTF-8")
 setnames(f.mmt, 1:2, c("date", "mmt"))
-f.mmt[, date := str_replace_all(date, "/", "-")
-    ][, date := as.Date(date, "%Y-%m-%d")]
-f.surv.flw <- f.mmt[f.surv.flw, on = "date", nomatch = 0]
+f.surv.flw <- f.mmt[, date := str_replace_all(date, "/", "-")
+    ][, date := as.Date(date, "%Y-%m-%d")
+    ][f.surv.flw, on = "date", nomatch = 0]
+rm(f.mmt)
+
+# add variables - active day & trade numbers - that proxies for experience
+ld(r.cube.info.1803)
+f.surv.flw<- r.cube.info[, .(cube.symbol, start.date = create.date)
+    ][f.surv.flw, on = "cube.symbol"
+    ][, active.day := date - start.date]
+rm(r.cube.info)
+
+ld(f.hold.price)
+cj <- f.hold.price[, .(date = seq(as.Date(min(created.at)), as.Date(max(created.at)), by = 'day')), keyby = .(cube.symbol, stock.symbol)]
+trd.num <- f.hold.price[, .(created.at, date = as.Date(created.at), cube.symbol, stock.symbol)
+    ][cj, on = .(date, cube.symbol, stock.symbol)
+    ][, tag := ifelse(!is.na(created.at), 1, 0)
+    ][order(cube.symbol, date)
+    ][, trd.num := cumsum(tag), keyby = .(cube.symbol)
+    ][, .(trd.num = max(trd.num)), by = .(cube.symbol, date)]
+f.surv.flw <- trd.num[f.surv.flw, on = .(cube.symbol, date)]
+rm(cj, trd.num, f.hold.price)
+sv(f.surv.flw)
 
 f.surv.early <- f.surv.flw[first.half == 1]
 f.surv.late <- f.surv.flw[second.half == 1]
-#ely.survival.g <- survfit(Surv(hold.time, issale) ~ isgain, data = f.surv.early[hold.time < 175])
-#lat.survival.g <- survfit(Surv(hold.time, issale) ~ isgain, data = f.surv.late[hold.time < 175])
-#ggsurv(ely.survival.g, lty.est = c(1, 2), surv.col = 1, plot.cens = F, xlab = "holding period (days)", ylab = "fraction of holding position(1st-Stage)", main = "Pooled Sample")
-#ggsurv(lat.survival.g, lty.est = c(1, 2), surv.col = 1, plot.cens = F, xlab = "holding period (days)", ylab = "fraction of holding position(2nd-Stage)", main = "Pooled Sample")
-
 # main regression
 # Select the people who had trading before and after first follow
 f.cube.early <- f.surv.early[, .(cube.symbol = unique(cube.symbol))]
 f.cube.late <- f.surv.late[, .(cube.symbol = unique(cube.symbol))]
 f.cube <- f.cube.early[f.cube.late, on = "cube.symbol", nomatch = 0]
 f.main <- f.surv.flw[f.cube, on = "cube.symbol", nomatch = 0]
-#[is.na(target.weight), weight.change := 0
-#][!is.na(target.weight), weight.change := target.weight - prev.weight.adjusted]
+
 
 # Select two same trading period 
 f.main[, pre.period := as.Date(follow.date) - min(date), by = .(cube.symbol)]
 f.main.early <- f.main[first.half == 1]
 f.main.late <- f.main[second.half == 1 & date - as.Date(follow.date) <= pre.period]
-rm(f.cube.early, f.cube.late, f.cube)
+rm(f.cube.early, f.cube.late, f.cube, f.surv.early, f.surv.late)
+sv(f.main)
 
 # Survival analysis & Regress
 library(ggthemes)
@@ -106,20 +118,23 @@ list(rst.cox.e, rst.cox.l, rst.cox) %>%
         single.row = F
     )
 
-rst.main.e <- f.main.early[, felm(issale ~ gain + I(gain * hldt.ls.7) | stck + cube.symbol + hold.time)] %>% summary()
-rst.main.l <- f.main.late[, felm(issale ~ gain + I(gain * hldt.ls.7) | stck + cube.symbol + hold.time)] %>% summary()
-rst.main0 <- f.main[, felm(issale ~ gain + second.half + I(gain * second.half) | cube.symbol + stck + hold.time)] %>% summary()
+rst.main.e <- f.main[first.half == 1, felm(issale ~ gain + I(gain * hldt.ls.7) | stck + cube.symbol + hold.time)] #%>% summary()
+rst.main.l <- f.main[second.half == 1 & date - as.Date(follow.date) <= pre.period, felm(issale ~ gain + I(gain * hldt.ls.7) | stck + cube.symbol + hold.time)] #%>% summary()
+rst.main0 <- f.main[, felm(issale ~ gain + second.half + I(gain * second.half) | cube.symbol + stck + hold.time)] #%>% summary()
 rst.main1 <- f.main[, felm(issale ~ gain + I(gain * hldt.ls.7) + second.half + I(gain * second.half * hldt.ls.7) | cube.symbol + stck + hold.time)]
 rst.main2 <- f.main[, felm(issale ~ gain + I(gain * hldt.ls.7) + second.half + I(gain * second.half * hldt.ls.7) + mmt | cube.symbol + stck + hold.time)]
+rst.main3 <- f.main[, felm(issale ~ gain + I(gain * hldt.ls.7) + second.half + I(gain * second.half * hldt.ls.7) + mmt + as.numeric(active.day/365) | cube.symbol + stck + hold.time)]
+rst.main4 <- f.main[, felm(issale ~ gain + I(gain * hldt.ls.7) + second.half + I(gain * second.half * hldt.ls.7) + mmt + as.numeric(trd.num/1000) | cube.symbol + stck + hold.time)]
+rst.main5 <- f.main[, felm(issale ~ gain + I(gain * hldt.ls.7) + second.half + I(gain * second.half * hldt.ls.7) + mmt + as.numeric(active.day/365) + as.numeric(trd.num/1000) | cube.symbol + stck + hold.time)]
 
-list(rst.main.e, rst.main.l, rst.main0, rst.main1, rst.main2) %>%
-    stargazer(out = "rst.felm.doc",
+list(rst.main.e, rst.main.l, rst.main0, rst.main1, rst.main2, rst.main3, rst.main4, rst.main5) %>%
+    stargazer(out = "rst.main.doc",
         type = "html",
         title = "Fixed effect OLS",
         dep.var.caption = "Dependent Variable: Sale",
         dep.var.labels.include = F,
-        column.labels = c("Pre-follow", "Pro-follow", "Both side", "Full Sample", "Full Sample"),
-        covariate.labels = c("Gain", "Gain*Hold.week", "Pro.follow", "Gain*Hold.week*Pro.follow", "Momentum"),
+        column.labels = c("Pre-follow", "Post-follow", "Both side", "Full Sample", "Full Sample", "Full Sample", "Full Sample", "Full Sample"),
+        covariate.labels = c("Gain", "Gain*Hold.week", "Post.follow", "Gain*Post.follow", "Gain*Hold.week*Post.follow", "Momentum", "Active days", "Trade number"),
         model.names = F,
         single.row = F,
-        add.lines = list(c("Trader FE", "Yes", "Yes", "Yes", "Yes", "Yes"), c("Hold period FE", "Yes", "Yes", "Yes", "Yes", "Yes"), c("Stock FE", "Yes", "Yes", "Yes", "Yes", "Yes")))
+        add.lines = list(c("Trader FE", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes"), c("Hold period FE", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes"), c("Stock FE", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes")))

@@ -1,25 +1,7 @@
-library(GGally)
-library(survival)
-library(Matrix)
-library(lfe)
-library(stargazer)
-library(lubridate)
-ld(f.surv.flw)
-f.surv.flw[, tag := ifelse(date - as.Date(follow.date) > 0, 1, 0), keyby = .(cube.symbol, stck)
-    ][, first.half := ifelse(tag == 0, 1, 0)
-    ][, second.half := ifelse(tag == 1, 1, 0)
-    ][, loss := ifelse(gain == 1, 0, 1)
-    ][, ishold := ifelse(issale == 1, 0, 1)
-    ][, hldt.ls.7 := ifelse(hold.time < 7, 1, 0) # sign the two-stage and loss&hold data
-    ][isgain == 'gain' & first.half == 1, state := "pre.gain"
-    ][isgain == 'loss' & first.half == 1, state := "pre.loss"
-    ][isgain == 'gain' & second.half == 1, state := "pro.gain"
-    ][isgain == 'loss' & second.half == 1, state := "pro.loss"]
+library(styleer)
+ld(f.main)
 
-f.surv.early <- f.surv.flw[first.half == 1]
-f.surv.late <- f.surv.flw[second.half == 1]
-
-# 1. Robust test 1 
+# 1. Robust test 1 (Gvn Up)
 # 1.1 Select individuals before following people have DE 
 f.cube.early <- f.surv.early[, .(cube.symbol = unique(cube.symbol))]
 f.cube.late <- f.surv.late[, .(cube.symbol = unique(cube.symbol))]
@@ -50,9 +32,6 @@ rst.rcox1.ede <- coxph(Surv(hold.time, issale) ~ gain, data = f.rbst1.DE[first.h
 rst.rcox1.lde <- coxph(Surv(hold.time, issale) ~ gain, data = f.rbst1.DE[second.half == 1])
 rst.rcox1.de <- coxph(Surv(hold.time, issale) ~ I(gain * first.half) + I(gain * second.half), data = f.rbst1.DE)
 
-#rst.rcox1.ende <- coxph(Surv(hold.time, issale) ~ gain, data = f.rbst1.NDE[first.half == 1])
-#rst.rcox1.lnde <- coxph(Surv(hold.time, issale) ~ gain, data = f.rbst1.NDE[second.half == 1])
-#rst.rcox1.nde <- coxph(Surv(hold.time, issale) ~ I(gain * first.half) + I(gain * second.half), data = f.rbst1.NDE)
 
 rst.rbst1 <- f.rbst1.DE[, felm(issale ~ gain + second.half + I(gain * second.half)| stck + cube.symbol + hold.time)] %>% summary()
 rst.rbst1.e <- f.rbst1.DE[first.half == 1, felm(issale ~  gain | stck + cube.symbol + hold.time)] %>% summary()
@@ -72,7 +51,7 @@ list(rst.rcox2.e, rst.rcox2.l, rst.rcox2, rst.rbst2.e, rst.rbst2.l, rst.rbst2) %
         add.lines = list(c("cube.symbol", "--", "--", "--", "Yes", "Yes", "Yes"), c("hold.time", "--", "--", "--", "Yes", "Yes", "Yes"), c("stock", "--", "--", "--", "Yes", "Yes", "Yes"))
     )
 
-# 2. Robust test 2
+# 2. Robust test 2 (Gvn Up)
 # 2.1 Calculate the ratio change of the stock in portfolio
 f.prt <- f.surv.flw[hold.price.lst != 0, prt.chng := (Clsprc - hold.price.lst) / hold.price.lst
     ][issale == 1, prt.chng :=ifelse(hold.price.lst !=0, (price - hold.price.lst) / hold.price.lst, 0)
@@ -97,36 +76,41 @@ mkt.sit[, mkt_rf_cum := {
     }
     cum
 }]
+
 mkt.sit <- mkt.sit[trdmn >= 201606 & trdmn <= 201803]
-mkt.sit[, trdmn := as.character(trdmn)
+
+f.rbst3 <- mkt.sit[, trdmn := as.character(trdmn)
     ][, trdmn := str_c(str_sub(trdmn, 1, 4), "-", str_sub(trdmn, 5, 6))
-    ][, date.month := trdmn]
-
-# 3.2 Select the people who had trading before and after first follow
-f.cube.early <- f.surv.early[, .(cube.symbol = unique(cube.symbol))]
-f.cube.late <- f.surv.late[, .(cube.symbol = unique(cube.symbol))]
-f.cube <- f.cube.early[f.cube.late, on = "cube.symbol", nomatch = 0]
-f.main <- f.surv.flw[f.cube, on = "cube.symbol", nomatch = 0]
-f.main[, date.month := format(date, "%Y-%m")]
-f.main[, pre.period := as.Date(follow.date) - min(date), by = .(cube.symbol)]
-f.main.early <- f.main[first.half == 1]
-f.main.late <- f.main[second.half == 1 & date - as.Date(follow.date) <= pre.period]
-
-# 3.3 Merge two tables
-f.rbst3 <- mkt.sit[, .(date.month, mkt_rf, mkt_rf_cum)
-    ][f.main, on = "date.month"]
+    ][, date.month := trdmn
+    ][, .(date.month, mkt_rf, mkt_rf_cum)
+    ][f.main[, date.month := format(date, "%Y-%m")], on = "date.month"]
+rm(mkt.sit)
 
 # 3.4 Regression
 rst.rbst3.bull <- f.rbst3[mkt_rf_cum > 0 & (first.half == 1 | second.half == 1 & date - as.Date(follow.date) <= pre.period), felm(issale ~ gain + second.half + I(gain * second.half) | cube.symbol + stck + hold.time)] # %>% summary() # bull
 rst.rbst3.bear <- f.rbst3[mkt_rf_cum < 0 & (first.half == 1 | second.half == 1 & date - as.Date(follow.date) <= pre.period), felm(issale ~ gain + second.half + I(gain * second.half) | cube.symbol + stck + hold.time)] # %>% summary() # bear
 rst.rbst3.bull1 <- f.rbst3[mkt_rf_cum > 0, felm(issale ~ gain + second.half + I(gain * second.half) | cube.symbol + stck + hold.time)]
 rst.rbst3.bear1 <- f.rbst3[mkt_rf_cum < 0, felm(issale ~ gain + second.half + I(gain * second.half) | cube.symbol + stck + hold.time)]
+rst.rbst3.bull2 <- f.rbst3[mkt_rf_cum > 0, felm(issale ~ gain + second.half + I(gain * second.half) + mmt | cube.symbol + stck + hold.time)]
+rst.rbst3.bear2 <- f.rbst3[mkt_rf_cum < 0, felm(issale ~ gain + second.half + I(gain * second.half) + mmt | cube.symbol + stck + hold.time)]
+rst.rbst3.bull3 <- f.rbst3[mkt_rf_cum > 0, felm(issale ~ gain + second.half + I(gain * second.half) + mmt + as.numeric(active.day/365) + as.numeric(trd.num/1000) | cube.symbol + stck + hold.time)]
+rst.rbst3.bear3 <- f.rbst3[mkt_rf_cum < 0, felm(issale ~ gain + second.half + I(gain * second.half) + mmt + as.numeric(active.day/365) + as.numeric(trd.num/1000) | cube.symbol + stck + hold.time)]
 
+list(rst.rbst3.bull, rst.rbst3.bear, rst.rbst3.bull1, rst.rbst3.bear1, rst.rbst3.bull2, rst.rbst3.bear2, rst.rbst3.bull3, rst.rbst3.bear3) %>%
+    stargazer(out = "rst.bullbear.doc",
+        type = "html",
+        title = "Bull and Bear market robust test",
+        dep.var.caption = "Dependent Variable: Sale",
+        dep.var.labels.include = F,
+        column.labels = c("Bull", "Bear", "Bull", "Bear", "Bull", "Bear", "Bull", "Bear"),
+        covariate.labels = c("Gain", "Post.follow", "Gain*Post.follow",  "Momentum", "Active days", "Trade number"),
+        model.names = F,
+        single.row = F,
+        add.lines = list(c("Trader FE", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes"), c("Hold period FE", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes"), c("Stock FE", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes")))
 
-
-# 4. Robust test 4
+# 4. Robust test 4 (GvnUp)
 # The loss price regress on holding behavior
-# 4.1.1 Select the people who had trading before and after first follow
+# 4.1 Select the people who had trading before and after first follow
 f.cube.early <- f.surv.early[, .(cube.symbol = unique(cube.symbol))]
 f.cube.late <- f.surv.late[, .(cube.symbol = unique(cube.symbol))]
 f.cube <- f.cube.early[f.cube.late, on = "cube.symbol", nomatch = 0]
@@ -135,29 +119,12 @@ f.rbst4.early <- f.rbst4[first.half == 1]
 f.rbst4.late <- f.rbst4[second.half == 1]
 rm(f.cube.early, f.cube.late, f.cube)
 
-# 4.1.2 Regression
+# 4.2 Regression
 rst.rbst4.e <- f.rbst4.early[, felm(issale ~ loss | cube.symbol + stck + hold.time)]
 rst.rbst4.l <- f.rbst4.late[, felm(issale ~ loss | cube.symbol + stck + hold.time)]
 rst.rbst4 <- f.rbst4[, felm(ishold ~ loss + I(loss * second.half) + second.half| cube.symbol + stck + hold.time)]
 
-## 4.2.1 Select individuals before and after follow people both had DE 
-#f.surv.early.m <- f.surv.early[gain == 1 & ishold == 1, .(cube.symbol = unique(cube.symbol), d.e.g = 1)
-    #][f.surv.early[loss == 1 & issale == 1, .(cube.symbol = unique(cube.symbol), d.e.l = 1)]
-    #, on = "cube.symbol", nomatch = 0]
-
-
-#f.surv.late.m <- f.surv.late[gain == 1 & ishold == 1, .(cube.symbol = unique(cube.symbol), d.e.g = 1)
-    #][f.surv.late[loss == 1 & issale == 1, .(cube.symbol = unique(cube.symbol), d.e.l = 1)]
-    #, on = "cube.symbol", nomatch = 0]
-
-#f.surv.m <- f.surv.early.m[f.surv.late.m, on = "cube.symbol", nomatch = 0]
-
-#f.rbst2 <- f.surv.m[f.surv.flw, on = "cube.symbol", nomatch = 0]
-#f.rbst2.early <- f.rbst2[first.half == 1]
-#f.rbst2.late <- f.rbst2[second.half == 1]
-#rm(f.surv.early.m, f.surv.late.m, f.surv.m)
-
-# 4.2.2 Regression
+# 4.3 Regression
 lrst.rbst2.e <- f.rbst2.early[, felm(ishold ~ loss | cube.symbol + stck + hold.time)]
 lrst.rbst2.l <- f.rbst2.late[, felm(ishold ~ loss | cube.symbol + stck + hold.time)]
 lrst.rbst2 <- f.rbst2[, felm(ishold ~ loss + second.half + I(loss * second.half) | cube.symbol + stck + hold.time)]
@@ -179,7 +146,7 @@ list(lrst.rbst1.e, lrst.rbst1.l, lrst.rbst1, lrst.rbst2.e, lrst.rbst2.l, lrst.rb
         add.lines = list(c("cube.symbol", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes"), c("hold.time", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes"), c("stock", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes"))
         )
 
-# 5. Robust test 5
+# 5. Robust test 5 (GvnUp)
 # Select tradings bought and sold during pre-follow period and as same in post-follow
 # 5.1 Select the people who had trading before and after first follow and two same trading period
 f.surv.early <- f.surv.flw[first.half == 1]

@@ -80,8 +80,5 @@ ststc <- rbindlist(list(ststc.pre.follow, ststc.pro.follow), use.names = T)
 ststc[is.na(ststc)] <- 0
 
 library(compareGroups)
-a <- compareGroups(group ~ trade.num + trade.num.sale + trade.num.gain + trade.num.loss + trade.sale.hold.time + trade.gain.hold.time + trade.loss.hold.time, data = ststc) %>% createTable(show.n = T)
-export2word(a, file = 'a.doc', which.table = "descr")
-export2md(a, file = 'a.doc', which.table = "both")
-stargazer(a, out = "a.doc")
-print(a, which.table = "both")
+rst.sm <- compareGroups(group ~ trade.num + trade.num.sale + trade.num.gain + trade.num.loss + trade.sale.hold.time + trade.gain.hold.time + trade.loss.hold.time, data = ststc) %>% createTable(show.n = T)
+export2word(rst.sm, file = 'rst.sm.doc', which.table = "descr")

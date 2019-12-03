@@ -46,7 +46,7 @@ pg_rk <- f.nwl.cntr[!is.na(out)
 grph <- pg_rk[, .(pgrnk = graph_(cbind(cube.symbol, sp.out), from_edgelist(), directed = FALSE)), keyby = .(date)]
 pgrk_grph <- grph[, .(pgrnk = page_rank(pgrnk)), keyby = .(date)]
 pgrk_grph <- pgrk_grph[, .SD[1], keyby = .(date)]
-p <- pgrk_grph[, setDT(as.data.frame(pgrnk), keep.rownames = T), keyby = .(date)] # This row is very important. When PR was calculated, the data structure is a list with rownames, more than that, rownames is a necessary variable to be transformed. First, the list should be transformed into data.frame with rownames, then, use setDT to convert data.frame into data.dable with a variable consisted with rownames.
+p <- pgrk_grph[, setDT(as.data.frame(pgrnk), keep.rownames = T), keyby = .(date)] # This row is very important. When PR was calculated, the data structure is a list with rownames, more than that, rownames is a necessary variable to be transformed. First, the list should be transformed into data.frame with rownames, then, use setDT to convert data.frame into data.table with a variable consisted with rownames.
 
 rm(grph, pgrk_grph)
 setnames(p, 2:3, c("sp.out", "ln.cntr"))
@@ -60,33 +60,31 @@ f.nwl <- f.nwl.cntr[f.nwl.ints, on = .(cube.symbol, date), nomatch = NA
 f.nwl <- f.nwl[, str_c("ln.cntr", 1, sep = ".lag") := shift(ln.cntr, n = 1, type = 'lag'), keyby = .(cube.symbol, stck)
     ][order(cube.symbol, date)]
 f.nwl[, .SD[.N], by = .(cube.symbol, date)]
-save(f.nwl, file = 'f.nwl.Rdata')
+sv(f.nwl)
 
 f.nwl.rbst1 <- f.nwl[f.cube, on = .(cube.symbol), nomatch = 0]
 f.nwl.rbst2 <- f.nwl[f.cube.DE, on = .(cube.symbol), nomatch = 0]
 
-#rst.ln1 <- f.nwl[ln.ints != 0, felm(issale ~ gain + hldt.ls.7 + I(gain*hldt.ls.7)+ log(ln.ints) + I(log(ln.ints) * gain*hldt.ls.7) | cube.symbol + stck + hold.time)]
-#rst.ln2 <- f.nwl[ln.cntr != 0, felm(issale ~ gain + log(ln.cntr) + I(log(ln.cntr) * gain) | cube.symbol + stck + hold.time)]
-#rst.ln3 <- f.nwl[ln.ints != 0, felm(issale ~ gain + log(ln.ints) + I(log(ln.ints) * gain) + log(ln.cntr) + I(log(ln.cntr) * gain) | cube.symbol + stck + hold.time)]
-rst.ln4 <- a[ln.ints != 0, felm(disp ~ second.half| cube.symbol + stck + hold.time)]
-rst.ln5 <- f.nwl.rbst1[, felm(issale ~ I(gain) + I(ln.cntr * 1000) + I(ln.cntr.lag1 * 1000) + I(ln.cntr * 1000 * gain) + I(ln.cntr.lag1 * 1000 * gain) | cube.symbol + stck + hold.time)]
-rst.ln6 <- f.nwl.rbst1[ln.ints != 0, felm(issale ~ I(gain * hldt.ls.7) + log(ln.ints) + I(log(ln.ints) * gain * hldt.ls.7) + log(ln.cntr) + I(log(ln.cntr) * gain * hldt.ls.7) | cube.symbol + stck + hold.time)]
+rst.ln1 <- f.nwl[, felm(issale ~ gain + log(ln.ints + 1) + I(gain*log(ln.ints+1)) | cube.symbol + stck + hold.time)]
+rst.ln2 <- f.nwl[, felm(issale ~ gain + log(ln.ints + 1) + I(gain * log(ln.ints + 1)) + mmt | cube.symbol + stck + hold.time)]
+rst.ln3 <- f.nwl[, felm(issale ~ gain + log(ln.ints + 1) + I(gain * log(ln.ints + 1)) + mmt + as.numeric(active.day / 365) | cube.symbol + stck + hold.time)]
+rst.ln4 <- f.nwl[, felm(issale ~ gain + log(ln.ints + 1) + I(gain * log(ln.ints + 1)) + mmt + as.numeric(trd.num / 1000) | cube.symbol + stck + hold.time)]
+rst.ln5 <- f.nwl[, felm(issale ~ gain + log(ln.ints + 1) + I(gain * log(ln.ints + 1)) + mmt + as.numeric(active.day / 365) + as.numeric(trd.num / 1000) | cube.symbol + stck + hold.time)]
 
-rst.ln7 <- f.nwl.rbst2[ln.ints != 0, felm(issale ~ gain + log(ln.ints) + I(log(ln.ints) * gain) | cube.symbol + stck + hold.time)]
-rst.ln8 <- f.nwl.rbst2[, felm(issale ~ I(gain) + I(ln.cntr * 1000) + I(ln.cntr.lag1 * 1000) + I(ln.cntr * 1000 * gain) + I(ln.cntr.lag1 * 1000 * gain) | cube.symbol + stck + hold.time)]
-rst.ln9 <- f.nwl.rbst2[ln.ints != 0, felm(issale ~ gain + log(ln.ints) + I(log(ln.ints) * gain) + log(ln.cntr*100) + I(log(ln.cntr*100) * gain) | cube.symbol + stck + hold.time)]
+rst.ln6 <- f.nwl[, felm(issale ~ gain + log(ln.cntr + 1) + I(gain * log(ln.cntr + 1)) | cube.symbol + stck + hold.time)]
+rst.ln7 <- f.nwl[, felm(issale ~ gain + log(ln.cntr + 1) + I(gain * log(ln.cntr + 1)) + mmt | cube.symbol + stck + hold.time)]
+rst.ln8 <- f.nwl[, felm(issale ~ gain + log(ln.cntr + 1) + I(gain * log(ln.cntr + 1)) + mmt + as.numeric(active.day / 365) | cube.symbol + stck + hold.time)]
+rst.ln9 <- f.nwl[, felm(issale ~ gain + log(ln.cntr + 1) + I(gain * log(ln.cntr + 1)) + mmt + as.numeric(trd.num / 1000) | cube.symbol + stck + hold.time)]
+rst.ln10 <- f.nwl[, felm(issale ~ gain + log(ln.cntr + 1) + I(gain * log(ln.cntr + 1)) + mmt + as.numeric(active.day / 365) + as.numeric(trd.num / 1000) | cube.symbol + stck + hold.time)]
 
-list(rst.ln1, rst.ln2, rst.ln3, rst.ln4, rst.ln5, rst.ln6, rst.ln7, rst.ln8, rst.ln9) %>%
+list(rst.ln1, rst.ln2, rst.ln3, rst.ln4, rst.ln5, rst.ln6, rst.ln7, rst.ln8, rst.ln9, rst.ln10) %>%
     stargazer(out = "rst.ln.doc",
         type = "html",
-        t.auto = T,
         title = "Full Sample",
         dep.var.caption = "Dependent Variable: Sale",
         dep.var.labels.include = F,
-        column.separate = c(3, 3, 3),
-        column.labels = c("Full Sample", "BiTrade Sample", "BiTradeDE Sample"),
-        covariate.labels = c("Gain", "ln.ints", "Gain*ln.ints", "ln.cntr", "Gain*ln.cntr"),
+        covariate.labels = c("Gain", "LI", "Gain*LI", "Momentum", "Active day", "Trade number", "LQ", "Gain*LQ"),
         omit.stat = c("LL", "ser"),
         model.names = F,
         single.row = F,
-        add.lines = list(c("cube.symbol", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes"), c("hold.time", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes"), c("stock", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes")))
+        add.lines = list(c("Trader FE", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes"), c("Hold period FE", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes"), c("Stock FE", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes")))
