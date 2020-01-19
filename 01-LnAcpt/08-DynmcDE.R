@@ -39,7 +39,7 @@ d.ttest <- ggplot(ggDE, aes(x = DE, colour = Stage, fill = Stage)) +
                             geom_line(stat = "density", size = 2) +
                             theme_grey() +
                             scale_colour_manual(values = c("#CC6666", "#7777DD")) +
-                            labs(x = paste("\u03B2", "value", collapse = " "), y = "Density") +
+                            labs(x = "Estimator of Disposition effect", y = "Density") +
                             scale_fill_manual(values = c("#CC6666", "#7777DD"),
                                                         name = "Stage",
                                                         breaks = c("post.follow", "pre.follow"),

@@ -120,21 +120,22 @@ list(rst.cox.e, rst.cox.l, rst.cox) %>%
 
 rst.main.e <- f.main[first.half == 1, felm(issale ~ gain + I(gain * hldt.ls.7) | stck + cube.symbol + hold.time)] #%>% summary()
 rst.main.l <- f.main[second.half == 1 & date - as.Date(follow.date) <= pre.period, felm(issale ~ gain + I(gain * hldt.ls.7) | stck + cube.symbol + hold.time)] #%>% summary()
+rst.main.b <- f.main[first.half == 1 | (second.half == 1 & date - as.Date(follow.date) <= pre.period), felm(issale ~ gain + second.half + I(gain*second.half) | stck + cube.symbol + hold.time)]
 rst.main0 <- f.main[, felm(issale ~ gain + second.half + I(gain * second.half) | cube.symbol + stck + hold.time)] #%>% summary()
-rst.main1 <- f.main[, felm(issale ~ gain + I(gain * hldt.ls.7) + second.half + I(gain * second.half * hldt.ls.7) | cube.symbol + stck + hold.time)]
-rst.main2 <- f.main[, felm(issale ~ gain + I(gain * hldt.ls.7) + second.half + I(gain * second.half * hldt.ls.7) + mmt | cube.symbol + stck + hold.time)]
-rst.main3 <- f.main[, felm(issale ~ gain + I(gain * hldt.ls.7) + second.half + I(gain * second.half * hldt.ls.7) + mmt + as.numeric(active.day/365) | cube.symbol + stck + hold.time)]
-rst.main4 <- f.main[, felm(issale ~ gain + I(gain * hldt.ls.7) + second.half + I(gain * second.half * hldt.ls.7) + mmt + as.numeric(trd.num/1000) | cube.symbol + stck + hold.time)]
-rst.main5 <- f.main[, felm(issale ~ gain + I(gain * hldt.ls.7) + second.half + I(gain * second.half * hldt.ls.7) + mmt + as.numeric(active.day/365) + as.numeric(trd.num/1000) | cube.symbol + stck + hold.time)]
+rst.main1 <- f.main[, felm(issale ~ gain + I(gain * hldt.ls.7) + second.half +I(gain * second.half * hldt.ls.7) | cube.symbol + stck + hold.time)]
+rst.main2 <- f.main[, felm(issale ~ gain  + second.half + I(gain * second.half) + mmt | cube.symbol + stck + hold.time)]
+rst.main3 <- f.main[, felm(issale ~ gain + second.half + I(gain * second.half) + mmt + as.numeric(active.day/365) | cube.symbol + stck + hold.time)]
+rst.main4 <- f.main[, felm(issale ~ gain + second.half + I(gain * second.half) + mmt + as.numeric(trd.num/1000) | cube.symbol + stck + hold.time)]
+rst.main5 <- f.main[, felm(issale ~ gain + second.half + I(gain * second.half) + mmt + as.numeric(active.day/365) + as.numeric(trd.num/1000) | cube.symbol + stck + hold.time)]
 
-list(rst.main.e, rst.main.l, rst.main0, rst.main1, rst.main2, rst.main3, rst.main4, rst.main5) %>%
+list(rst.main.e, rst.main.l, rst.main.b, rst.main0, rst.main1, rst.main2, rst.main3, rst.main4, rst.main5) %>%
     stargazer(out = "rst.main.doc",
         type = "html",
         title = "Fixed effect OLS",
         dep.var.caption = "Dependent Variable: Sale",
         dep.var.labels.include = F,
-        column.labels = c("Pre-follow", "Post-follow", "Both side", "Full Sample", "Full Sample", "Full Sample", "Full Sample", "Full Sample"),
-        covariate.labels = c("Gain", "Gain*Hold.week", "Post.follow", "Gain*Post.follow", "Gain*Hold.week*Post.follow", "Momentum", "Active days", "Trade number"),
+        column.labels = c("Pre-follow", "Post-follow", "Both side", "Full Sample", "Full Sample", "Full Sample", "Full Sample", "Full Sample", "Full Sample"),
+        covariate.labels = c("Gain", "Gain * Hold-7-day", "Postfollow", "Gain * Postfollow", "Gain * Postfollow * Hold-7-day", "Momentum", "Active days", "Trade number"),
         model.names = F,
         single.row = F,
-        add.lines = list(c("Trader FE", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes"), c("Hold period FE", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes"), c("Stock FE", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes")))
+        add.lines = list(c("Trader FE", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes"), c("Hold period FE", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes"), c("Stock FE", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes")))

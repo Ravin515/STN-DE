@@ -296,3 +296,6 @@ __pycache__/
 *.doc
 /01-LnAcpt/rst.ln_files
 /01-LnAcpt/rst.main_files
+/01-LnAcpt/rst.bullbear_files/themedata.thmx
+/01-LnAcpt/rst.bullbear_files/filelist.xml
+/01-LnAcpt/rst.bullbear_files/colorschememapping.xml

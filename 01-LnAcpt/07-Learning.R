@@ -62,8 +62,9 @@ f.nwl <- f.nwl[, str_c("ln.cntr", 1, sep = ".lag") := shift(ln.cntr, n = 1, type
 f.nwl[, .SD[.N], by = .(cube.symbol, date)]
 sv(f.nwl)
 
-f.nwl.rbst1 <- f.nwl[f.cube, on = .(cube.symbol), nomatch = 0]
-f.nwl.rbst2 <- f.nwl[f.cube.DE, on = .(cube.symbol), nomatch = 0]
+#f.nwl.rbst1 <- f.nwl[f.cube, on = .(cube.symbol), nomatch = 0]
+#f.nwl.rbst2 <- f.nwl[f.cube.DE, on = .(cube.symbol), nomatch = 0]
+f.nwl[is.na(ln.ints), ln.ints := 0]
 
 rst.ln1 <- f.nwl[, felm(issale ~ gain + log(ln.ints + 1) + I(gain*log(ln.ints+1)) | cube.symbol + stck + hold.time)]
 rst.ln2 <- f.nwl[, felm(issale ~ gain + log(ln.ints + 1) + I(gain * log(ln.ints + 1)) + mmt | cube.symbol + stck + hold.time)]
