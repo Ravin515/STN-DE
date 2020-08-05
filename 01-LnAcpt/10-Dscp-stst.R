@@ -1,6 +1,6 @@
-ld(f.hold.price)
-ld(user.wnwk.sp)
-ld(f.surv.flw)
+styleer::ld(f.hold.price)
+styleer::ld(user.wnwk.sp)
+styleer::ld(f.surv.flw)
 library(stargazer)
 
 f.fst.flw <- user.wnwk.sp[!sapply(to.cube.symbol, is.null), .(follow.date = min(follow.date)), keyby = .(from.cube.symbol)]
@@ -69,6 +69,7 @@ ststc.pro.follow <- pro.follow.trade[, trade.time := as.character(trade.time) %>
     ][!is.na(hold.time) & issale == 1 & isgain == 1, trade.gain.hold.time := mean(hold.time), by = .(cube.symbol)
     ][!is.na(hold.time) & issale == 1 & isgain == 0, trade.loss.hold.time := mean(hold.time), by = .(cube.symbol)
     ][, unique(.SD), by = .(cube.symbol), .SDcol = colnames(pro.follow.trade)[c(5, 22:29)]]
+
 ## Every cube statistic
 ststc.pro.follow <- ststc.pro.follow[, .SD[, - c(2, 4)]
     ][, lapply(.SD, na.locf, na.rm = F, fromLast = T), by = .(cube.symbol)
@@ -82,3 +83,25 @@ ststc[is.na(ststc)] <- 0
 library(compareGroups)
 rst.sm <- compareGroups(group ~ trade.num + trade.num.sale + trade.num.gain + trade.num.loss + trade.sale.hold.time + trade.gain.hold.time + trade.loss.hold.time, data = ststc) %>% createTable(show.n = T)
 export2word(rst.sm, file = 'rst.sm.doc', which.table = "descr")
+
+# additional network statistic
+# number of followings
+styleer::ld(f.nwl.reg)
+network.flw <- f.nwl[, .(num.flw = ln.ints, first.half), by = .(cube.symbol, date)
+    ][order(cube.symbol, date)
+    ][, .(num.flw = mean(num.flw)), by = .(cube.symbol, first.half)
+    ][, x := .N, by = cube.symbol
+    ][x == 2]
+network.flw[, .(mean(num.flw), sd(num.flw)), by = first.half]
+t.test(network.flw[first.half == 1]$num.flw %>% as.numeric(), network.flw[first.half == 0]$num.flw %>% as.numeric())
+rm(f.nwl, network.flw)
+
+# number of fans
+styleer::ld(user.wnwk.sp)
+styleer::wld(f.nwl)
+tim <- CJ(cube.symbol = unique(f.nwl.ints$cube.symbol), date = seq(as.Date('2016-06-24'), as.Date('2018-03-27'), by = "day"))
+
+network.fan <- user.wnwk.sp[, ":="(date = follow.date, cube.symbol = from.cube.symbol)
+    ][, out := ifelse(!is.null(to.cube.symbol), str_c(unlist(to.cube.symbol), collapse = ","), NA), keyby = .(cube.symbol, date)
+    ][, ":="(from.cube.symbol = NULL, follow.date = NULL, to.cube.symbol = NULL)
+    ][tim, on = .(cube.symbol, date), nomatch = NA]

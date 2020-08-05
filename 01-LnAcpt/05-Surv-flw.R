@@ -2,17 +2,17 @@ library(styleer)
 ld(f.surv.flw)
 
 #split the trades by the first-follow date
-f.surv.flw[, tag := ifelse(date - as.Date(follow.date) > 0, 1, 0), keyby = .(cube.symbol, stck)
+f.surv.flw[, tag := ifelse(date - as.Date(follow.date) >= 0, 1, 0), keyby = .(cube.symbol, stck)
     ][, first.half := ifelse(tag == 0, 1, 0)
     ][, second.half := ifelse(tag == 1, 1, 0)
     ][, loss := ifelse(gain == 1, 0, 1)
     ][, ishold := ifelse(issale == 1, 0, 1)
     ][, hldt.ls.7 := ifelse(hold.time < 7, 1, 0)
     ][, hold.time.7 := ifelse(hldt.ls.7 == 1, hold.time, 8)
-    ][isgain == 'gain' & first.half == 1, state := "pre-follow-gain"
-    ][isgain == 'loss' & first.half == 1, state := "pre-follow-loss"
-    ][isgain == 'gain' & second.half == 1, state := "post-follow-gain"
-    ][isgain == 'loss' & second.half == 1, state := "post-follow-loss"]
+    ][isgain == 'gain' & first.half == 1, state := "pre-follow(gain)"
+    ][isgain == 'loss' & first.half == 1, state := "pre-follow(loss)"
+    ][isgain == 'gain' & second.half == 1, state := "post-follow(gain)"
+    ][isgain == 'loss' & second.half == 1, state := "post-follow(loss)"]
 
 
 
@@ -61,81 +61,92 @@ rm(f.cube.early, f.cube.late, f.cube, f.surv.early, f.surv.late)
 sv(f.main)
 
 # Survival analysis & Regress
+ld(f.main)
+library(survival)
 library(ggthemes)
+f.main[isgain == 'gain' & first.half == 1, state := "pre-follow (gain)"
+    ][isgain == 'loss' & first.half == 1, state := "pre-follow (loss)"
+    ][isgain == 'gain' & second.half == 1, state := "post-follow (gain)"
+    ][isgain == 'loss' & second.half == 1, state := "post-follow (loss)"]
 gg.main <- survfit(Surv(hold.time, issale) ~ state, data = f.main[hold.time < 200 & (first.half == 1 | (second.half == 1 & date - as.Date(follow.date) <= pre.period))])
 
 d.main <- ggsurv(gg.main,
                              lty.est = c(1, 1, 4, 4),
                              surv.col = c("#CC6666", "#CC6666", "#7777DD", "#7777DD"),
                              plot.cens = F,
-                             xlab = "holding period (days)",
-                             ylab = "fraction of holding position",
+                             xlab = "Holding period (days)",
+                             ylab = "Remaining position",
                              main = "",
-                             size.est = 1.5,
+                             size.est = 0.5,
                              order.legend = T
-                            ) +
-                #ggplot2 :: scale_linetype_manual(
-                             #name = "Phase",
-                             #breaks = c("pro.loss", "pro.gain", "pre.loss", "pre.gain"),
-                             #labels = c("Control", "Treatment 1", "Treatment 2", "Treatment3")) +
-                #scale_colour_discrete(
-                             #name = "Phase",
-                             #labels = c("Control", "Treatment 1", "Treatment 2", "Treatment3")) +
-                                    
-                theme_grey() +
-                theme(
-                            axis.title.x = element_text(size = 24, margin = margin(t = 20, r = 0, b = 20, l = 0)),
-                            axis.title.y = element_text(size = 24, margin = margin(t = 0, r = 20, b = 0, l = 20)),
-                            axis.text = element_text(size = 24),
-                            panel.border = element_rect(linetype = 1, fill = NA),
+                            )+
+
+                            #theme_grey() +
+                            theme(
+                            #axis.title.x = element_text(size = 24, margin = margin(t = 20, r = 0, b = 20, l = 0)),
+                            #axis.title.y = element_text(size = 24, margin = margin(t = 0, r = 20, b = 0, l = 20)),
+                            #axis.text = element_text(size = 24),
+                            #panel.border = element_rect(linetype = 1, fill = NA),
                             legend.title = element_blank(),
                             legend.position = "bottom",
-                            legend.direction = "horizontal",
-                            legend.text = element_text(size = 24),
-                            legend.key = element_rect(size = 0.5, colour = "black", fill = "white"),
-                            legend.key.size = unit(1, 'cm'),
-                            legend.spacing.x = unit(0.5, 'cm'),
+                            #legend.direction = "horizontal",
+                            #legend.text = element_text(size = 24),
+                            #legend.key = element_rect(size = 0.5, colour = "black", fill = "white"),
+                            #legend.key.size = unit(1, 'cm'),
+                            legend.spacing.x = unit(0.1, 'cm'),
                             legend.spacing.y = unit(2, 'cm'),
-                            legend.box = "horizontal",
-                            legend.box.background = element_rect(size = 1, colour = "black", fill = "white")
+                            #legend.box = "horizontal",
+                            #legend.box.background = element_rect(size = 1, colour = "black", fill = "white")
+                        plot.margin = unit(c(0, 1, 1, 1), "lines")
                             )
-         
+
+ggsave("Fig2.tiff", device = "tiff", dpi = 300, width = 5.5, height = 4) # plos one size
 
 rst.cox.e <- coxph(Surv(hold.time, issale == 1) ~ gain, data = f.main.early)
 rst.cox.l <- coxph(Surv(hold.time, issale == 1) ~ gain, data = f.main.late)
-rst.cox <- coxph(Surv(hold.time, issale == 1) ~ gain + second.half + I(gain * second.half), data = f.main)
+rst.cox <- coxph(Surv(hold.time, issale == 1) ~ gain + second.half + I(gain * second.half), data = f.main[first.half == 1 | (second.half == 1 & date - as.Date(follow.date) <= pre.period)])
 
 list(rst.cox.e, rst.cox.l, rst.cox) %>%
     stargazer(
-        out = "rst.cox.doc",
+        out = "Table2.doc",
         type = "html",
         title = "Main Regression",
         dep.var.labels.include = F,
-        covariate.labels = c("Gain", "Hold.week", "Gain*Hold.week", "Gain*Hold.week*Pre.follow", "Gain*Hold.week*Pro.follow"),
-        column.labels = c("Pre-follow", "Pro-follow", "Full sample"),
+        covariate.labels = c("Gain", "Postfollow", "Gain * Postfollow"),
+        column.labels = c("Pre-follow", "Pro-follow", "Two-stage"),
         omit.stat = c("LL", "lr", "wald", "max.rsq", "logrank"),
-        model.names = T,
+        model.names = F,
         single.row = F
     )
 
-rst.main.e <- f.main[first.half == 1, felm(issale ~ gain + I(gain * hldt.ls.7) | stck + cube.symbol + hold.time)] #%>% summary()
-rst.main.l <- f.main[second.half == 1 & date - as.Date(follow.date) <= pre.period, felm(issale ~ gain + I(gain * hldt.ls.7) | stck + cube.symbol + hold.time)] #%>% summary()
-rst.main.b <- f.main[first.half == 1 | (second.half == 1 & date - as.Date(follow.date) <= pre.period), felm(issale ~ gain + second.half + I(gain*second.half) | stck + cube.symbol + hold.time)]
-rst.main0 <- f.main[, felm(issale ~ gain + second.half + I(gain * second.half) | cube.symbol + stck + hold.time)] #%>% summary()
-rst.main1 <- f.main[, felm(issale ~ gain + I(gain * hldt.ls.7) + second.half +I(gain * second.half * hldt.ls.7) | cube.symbol + stck + hold.time)]
-rst.main2 <- f.main[, felm(issale ~ gain  + second.half + I(gain * second.half) + mmt | cube.symbol + stck + hold.time)]
-rst.main3 <- f.main[, felm(issale ~ gain + second.half + I(gain * second.half) + mmt + as.numeric(active.day/365) | cube.symbol + stck + hold.time)]
-rst.main4 <- f.main[, felm(issale ~ gain + second.half + I(gain * second.half) + mmt + as.numeric(trd.num/1000) | cube.symbol + stck + hold.time)]
-rst.main5 <- f.main[, felm(issale ~ gain + second.half + I(gain * second.half) + mmt + as.numeric(active.day/365) + as.numeric(trd.num/1000) | cube.symbol + stck + hold.time)]
+library(alpaca)
+rst.main.e <- feglm(issale ~ gain | stck + cube.symbol + hold.time, f.main[first.half == 1], binomial("logit")) #%>% summary()
 
-list(rst.main.e, rst.main.l, rst.main.b, rst.main0, rst.main1, rst.main2, rst.main3, rst.main4, rst.main5) %>%
-    stargazer(out = "rst.main.doc",
-        type = "html",
-        title = "Fixed effect OLS",
-        dep.var.caption = "Dependent Variable: Sale",
-        dep.var.labels.include = F,
-        column.labels = c("Pre-follow", "Post-follow", "Both side", "Full Sample", "Full Sample", "Full Sample", "Full Sample", "Full Sample", "Full Sample"),
-        covariate.labels = c("Gain", "Gain * Hold-7-day", "Postfollow", "Gain * Postfollow", "Gain * Postfollow * Hold-7-day", "Momentum", "Active days", "Trade number"),
-        model.names = F,
-        single.row = F,
-        add.lines = list(c("Trader FE", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes"), c("Hold period FE", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes"), c("Stock FE", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes")))
+rst.main.l <-  feglm(issale ~ gain | stck + cube.symbol + hold.time, f.main[second.half == 1 & date - as.Date(follow.date) <= pre.period], binomial("logit")) #%>% summary()
+
+rst.main.t0 <- feglm(issale ~ gain + second.half + I(gain * second.half) | stck + cube.symbol + hold.time, f.main[first.half == 1 | (second.half == 1 & date - as.Date(follow.date) <= pre.period)], binomial("logit"))
+
+rst.main.t1 <- feglm(issale ~ gain + second.half + I(gain * second.half) + mmt | cube.symbol + stck + hold.time, f.main[first.half == 1 | (second.half == 1 & date - as.Date(follow.date) <= pre.period)], binomial("logit"))
+
+rst.main.t2 <- feglm(issale ~ gain + second.half + I(gain * second.half) + as.numeric(active.day / 365) | cube.symbol + stck + hold.time, f.main[first.half == 1 | (second.half == 1 & date - as.Date(follow.date) <= pre.period)], binomial("logit"))
+
+rst.main.t3 <- feglm(issale ~ gain + second.half + I(gain * second.half) + as.numeric(trd.num / 1000) | cube.symbol + stck + hold.time, f.main[first.half == 1 | (second.half == 1 & date - as.Date(follow.date) <= pre.period)], binomial("logit"))
+
+rst.main.t4 <- feglm(issale ~ gain + second.half + I(gain * second.half) + mmt + as.numeric(active.day / 365) + as.numeric(trd.num / 1000) | cube.symbol + stck + hold.time, f.main[first.half == 1 | (second.half == 1 & date - as.Date(follow.date) <= pre.period)], binomial("logit")) #%>% summary()
+
+rst.main.f1 <- feglm(issale ~ gain + second.half + I(gain * second.half) | cube.symbol + stck + hold.time, f.main, binomial("logit"))
+rst.main.f2 <- feglm(issale ~ gain + second.half + I(gain * second.half) + mmt + as.numeric(active.day / 365) + as.numeric(trd.num / 1000) | cube.symbol + stck + hold.time, f.main, binomial("logit"))
+
+library(texreg)
+list(rst.main.e, rst.main.l, rst.main.t0, rst.main.t1, rst.main.t2, rst.main.t3, rst.main.t4, rst.main.f1, rst.main.f2) %>%
+    htmlreg(
+            file = "Table3G.doc",
+            custom.model.names = c("(1)", "(2)", "(3)", "(4)", "(5)", "(6)", "(7)", "(8)", "(9)"),
+            custom.gof.rows = list("Trader FE" = c("Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes"),
+                                                 "Holding period FE" = c("Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes"),
+                                                 "Stock FE" = c("Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes")),
+            custom.coef.names = c("Gain", "Post-follow", "Gain * Post-follow", "Momentum", "Active days", "Trade number"),
+            reorder.coef = c(1, 2, 3, 4, 5, 6),
+            no.margin = T,
+            digits = 3
+            )

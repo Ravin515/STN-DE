@@ -114,3 +114,66 @@ a[, stck.prtfl := {
 b <- a[['stck.prtfl']]
 d <- b[[2]]
 a[ppr.gain == 1, ppr.gain.stck := sadd(stck)]
+
+## Cleaning uploading data 
+# Data for Fig2, Fig3, Table 1, Table 2, Table 3
+styleer::ld(f.main, force = T)
+sample1 <- f.main[active.day >= 0, .SD
+    ][, .(cube.symbol, date, trd.num, mmt, active.day, hold.period = hold.time, pre.period, stkcd = stck, sale = issale, gain, follow.date, post.follow = second.half, pre.follow = first.half)
+    ][order(cube.symbol, date)]
+styleer::sv(sample1)
+
+# Data for Table 4
+styleer::ld(f.nwl.reg, force = T)
+sample2 <- f.nwl.reg[active.day >= 0, active.day := 0
+    ][, .(cube.symbol, date, cntra = ln.cntr, followings = oud, followers = ind, trd.num, mmt, active.day, hold.period = hold.time, pre.period, stkcd = stck, sale = issale, gain)
+    ][order(cube.symbol, date)]
+styleer::sv(sample2)
+
+## Test 
+a <- f.nwl.reg[sale == 1 & hold.price != 0, issale := 0]
+feglm(sale ~ gain + post.follow + I(gain * post.follow) + mmt + as.numeric(active.day / 365) + as.numeric(trd.num / 1000) | cube.symbol + stkcd + hold.period, a[pre.follow == 1 | (post.follow == 1 & date - as.Date(follow.date) <= pre.period)], binomial("logit")) %>% summary()
+feglm(sale ~ gain + post.follow + I(gain * post.follow) + mmt + as.numeric(active.day / 365) + as.numeric(trd.num / 1000) | cube.symbol + stkcd + hold.period, a, binomial("logit")) %>% summary()
+
+library(survival)
+a <- a[gain == 1 & pre.follow == 1, state := "pre-follow (gain)"
+    ][gain == 0 & pre.follow == 1, state := "pre-follow (loss)"
+    ][gain == 1 & post.follow == 1, state := "post-follow (gain)"
+    ][gain == 0 & post.follow == 1, state := "post-follow (loss)"]
+gg.main <- survfit(Surv(hold.period, issale) ~ state, data = a[hold.period < 200 & (pre.follow == 1 | post.follow == 1)])
+library(ggplot2)
+library(GGally)
+d.main <- ggsurv(gg.main,
+                             lty.est = c(1, 1, 4, 4),
+                             surv.col = c("#CC6666", "#CC6666", "#7777DD", "#7777DD"),
+                             plot.cens = F,
+                             xlab = "Holding period (days)",
+                             ylab = "Remaining position",
+                             main = "",
+                             size.est = 0.5,
+                             order.legend = T
+                            ) +
+
+                            #theme_grey() +
+                            theme(
+#axis.title.x = element_text(size = 24, margin = margin(t = 20, r = 0, b = 20, l = 0)),
+#axis.title.y = element_text(size = 24, margin = margin(t = 0, r = 20, b = 0, l = 20)),
+#axis.text = element_text(size = 24),
+#panel.border = element_rect(linetype = 1, fill = NA),
+                            legend.title = element_blank(),
+                            legend.position = "bottom",
+#legend.direction = "horizontal",
+#legend.text = element_text(size = 24),
+#legend.key = element_rect(size = 0.5, colour = "black", fill = "white"),
+#legend.key.size = unit(1, 'cm'),
+                            legend.spacing.x = unit(0.1, 'cm'),
+                            legend.spacing.y = unit(2, 'cm'),
+#legend.box = "horizontal",
+#legend.box.background = element_rect(size = 1, colour = "black", fill = "white")
+                        plot.margin = unit(c(0, 1, 1, 1), "lines")
+                            )
+rst.cox.e <- coxph(Surv(hold.period, issale == 1) ~ gain, data = a[pre.follow == 1])
+rst.cox.l <- coxph(Surv(hold.period, issale == 1) ~ gain, data = a[post.follow == 1])
+rst.cox <- coxph(Surv(hold.period, issale == 1) ~ gain + post.follow + I(gain * post.follow), data = a[pre.follow == 1 | (post.follow == 1 & date - as.Date(follow.date) <= pre.period)])
+
+feglm(issale ~ gain + post.follow + I(gain * post.follow) + mmt + as.numeric(active.day / 365) + as.numeric(trd.num / 1000) | cube.symbol + stck + hold.period, f.nwl.reg[pre.follow == 1 | (post.follow == 1 & date - as.Date(follow.date) <= pre.period)], binomial("logit")) %>% summary()
