@@ -332,3 +332,15 @@ __pycache__/
 /01-LnAcpt/Fig3R2.tiff
 /01-LnAcpt/Fig3R1.tiff
 /01-LnAcpt/Figs
+*.rds
+/02-Profit/Fig1.tiff
+/02-Profit/Fig1-2.tiff
+/02-Profit/Fig1-1.tiff
+/02-Profit/data/UMDDAY.csv
+/02-Profit/data/STK_MKT_THRFACMONTH.txt
+/02-Profit/data/STK_MKT_THRFACDAY.txt
+/02-Profit/data/STK_MKT_FIVEFACMONTH.txt
+/02-Profit/data/STK_MKT_FIVEFACDAY.txt
+/02-Profit/data/STK_MKT_CARHARTFOURFACTORS.txt
+/02-Profit/data
+/02-Profit/Fig1-3.tiff

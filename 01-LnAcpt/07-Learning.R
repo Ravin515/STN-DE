@@ -28,7 +28,7 @@ rm(user.wnwk.sp)
 
 
 # 7.2 Calculate learning centrality
-ld(user.wnwk.sp)
+styleer::ld(user.wnwk.sp)
 tim <- CJ(cube.symbol = unique(f.nwl.ints$cube.symbol), date = seq(as.Date('2016-06-24'), as.Date('2018-03-27'), by = "day"))
 
 

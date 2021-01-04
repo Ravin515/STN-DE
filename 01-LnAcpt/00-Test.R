@@ -115,19 +115,29 @@ b <- a[['stck.prtfl']]
 d <- b[[2]]
 a[ppr.gain == 1, ppr.gain.stck := sadd(stck)]
 
+
+
 ## Cleaning uploading data 
-# Data for Fig2, Fig3, Table 1, Table 2, Table 3
+# Data for Fig3, Fig4, Table 2, Table 3
 styleer::ld(f.main, force = T)
 sample1 <- f.main[active.day >= 0, .SD
     ][, .(cube.symbol, date, trd.num, mmt, active.day, hold.period = hold.time, pre.period, stkcd = stck, sale = issale, gain, follow.date, post.follow = second.half, pre.follow = first.half)
     ][order(cube.symbol, date)]
 styleer::sv(sample1)
 
-# Data for Table 4
-styleer::ld(f.nwl.reg, force = T)
-sample2 <- f.nwl.reg[active.day >= 0, active.day := 0
-    ][, .(cube.symbol, date, cntra = ln.cntr, followings = oud, followers = ind, trd.num, mmt, active.day, hold.period = hold.time, pre.period, stkcd = stck, sale = issale, gain)
-    ][order(cube.symbol, date)]
+# Data for Table1, Table 4
+ret.mst.1806 <- readRDS("ret.mst.1806.rds")
+load("f.nwl.reg.Rdata")
+sample2 <- ret.mst.1806[cube.type == 'SP', .(ret = value[.N]), by = .(cube.symbol, date)
+    ][, unique(.SD)
+    ][f.nwl.reg, on = .(cube.symbol, date)
+    ][, unique(.SD)
+    ][, .(cube.symbol, date, cntra = ln.cntr, followings = oud, followers = ind, trd.num, mmt, active.day, hold.period = hold.time, pre.period, stkcd = stck, sale = issale, gain, ret)
+    ][order(cube.symbol, date)
+    ][, unique(.SD)
+    ][active.day >= 0, .SD
+    ]
+
 styleer::sv(sample2)
 
 ## Test 
