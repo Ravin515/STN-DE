@@ -25,7 +25,7 @@ f.surv.flw <- f.mmt[, date := str_replace_all(date, "/", "-")
 rm(f.mmt)
 
 # add variables - active day & trade numbers - that proxies for experience
-ld(r.cube.info.1803)
+load("r.cube.info.1803.Rdata")
 f.surv.flw<- r.cube.info[, .(cube.symbol, start.date = create.date)
     ][f.surv.flw, on = "cube.symbol"
     ][, active.day := date - start.date]
@@ -63,7 +63,7 @@ sv(f.main)
 # Survival analysis & Regress
 ld(f.main)
 library(survival)
-library(ggthemes)
+library(GGally)
 f.main[isgain == 'gain' & first.half == 1, state := "pre-follow (gain)"
     ][isgain == 'loss' & first.half == 1, state := "pre-follow (loss)"
     ][isgain == 'gain' & second.half == 1, state := "post-follow (gain)"
@@ -120,9 +120,9 @@ list(rst.cox.e, rst.cox.l, rst.cox) %>%
     )
 
 library(alpaca)
-rst.main.e <- feglm(issale ~ gain | stck + cube.symbol + hold.time, f.main[first.half == 1], binomial("logit")) #%>% summary()
+rst.main.e <- feglm(issale ~ gain | stck + cube.symbol + hold.time, f.main[first.half == 1], binomial("logit")) %>% summary()
 
-rst.main.l <-  feglm(issale ~ gain | stck + cube.symbol + hold.time, f.main[second.half == 1 & date - as.Date(follow.date) <= pre.period], binomial("logit")) #%>% summary()
+rst.main.l <-  feglm(issale ~ gain | stck + cube.symbol + hold.time, f.main[second.half == 1 & date - as.Date(follow.date) <= pre.period], binomial("logit")) %>% summary()
 
 rst.main.t0 <- feglm(issale ~ gain + second.half + I(gain * second.half) | stck + cube.symbol + hold.time, f.main[first.half == 1 | (second.half == 1 & date - as.Date(follow.date) <= pre.period)], binomial("logit"))
 

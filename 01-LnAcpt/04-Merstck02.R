@@ -28,10 +28,10 @@ user.wnwk.sp <- f.user.stock.mst.1803[cube.type %in% c('ZHCN'), .(from.user.id =
     ][order(from.cube.symbol, follow.date)]
 sv(user.wnwk.sp)
 
-ld(user.wnwk.sp, T)
-ld(f.surv)
+styleer::ld(user.wnwk.sp.1806)
+styleer::ld(f.surv.Rdata)
 #将wnwk当中为null的行全部删除，然后与f.surv进行合并
-f.fst.flw <- user.wnwk.sp[!sapply(to.cube.symbol, is.null), .(follow.date = min(follow.date)), keyby = .(from.cube.symbol)]
+f.fst.flw <- user.wnwk.sp.1806[!sapply(to.cube.symbol, is.null), .(follow.date = min(follow.date)), keyby = .(from.cube.symbol)]
 
 f.surv.flw <- f.surv[f.fst.flw, on = .(cube.symbol = from.cube.symbol), nomatch = NA
     ][!is.na(Clsprc)]

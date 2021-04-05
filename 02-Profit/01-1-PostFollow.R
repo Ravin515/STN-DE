@@ -2,7 +2,7 @@ library(styleer)
 ld(r.cube.ret.mst.1806)
 f.cube.ret.sp <- r.cube.ret.mst.1806[cube.type == "SP"]
 rm(r.cube.ret.mst.1806)
-f.cube.ret.sp <- f.cube.ret.sp[, unique(.SD), .SDcols = c("value", "date", "cube.symbol")
+f.cube.ret.sp <- f.cube.ret.sp[, unique(.SD), .SDcols = c("value", "date", "cube.symbol", "label")
     ][, .SD[.N], by = .(cube.symbol, date)]
 sv(f.cube.ret.sp, svname = "f.cube.ret.sp")
 
@@ -87,21 +87,21 @@ mmt <- mmt[, setnames(.SD, 1:2, c("date", "mmt"))
     ][, date := str_replace_all(date, "/", "-") %>% as.Date("%Y-%m-%d")]
 
 # 5. Trade number is merged to main
-ld(f.cube.rb.mst.1803)
-cube.rb.sp <- f.cube.rb.mst.1803[cube.type == "SP", .(cube.symbol, created.at, date = as.Date(created.at), tag = 1)
+ld(f.cube.rb.sp.mst.1806)
+cube.rb.sp <- f.cube.rb.sp.mst.1806[cube.type == "SP", .(cube.symbol, created.at, date = as.Date(created.at), tag = 1)
     ][, trd.num := sum(tag), by = .(cube.symbol, date)
     ][order(cube.symbol, date), .SD
     ][, trd.num := cumsum(trd.num), by = .(cube.symbol)
     ][, .SD[.N], by = .(cube.symbol, date)
     ][, ':='(created.at = NULL, tag = NULL)]
-rm(f.cube.rb.mst.1803)
+rm(f.cube.rb.sp.mst.1806)
 
 
-# 7. stock list generating
-ld(f.cube.rb.mst.1803)
+# 7. stock list generating ----
+ld(f.cube.rb.sp.mst.1806)
 
 # 7.1 processing every stock symbol first trading per cube
-cube.rb.first <- f.cube.rb.mst.1803[cube.type == "SP", .(cube.symbol, target.weight, prev.weight.adjusted, stock.symbol, created.at)
+cube.rb.first <- f.cube.rb.sp.mst.1806[cube.type == "SP", .(cube.symbol, target.weight, prev.weight.adjusted, stock.symbol, created.at)
     ][order(cube.symbol, stock.symbol, created.at), .SD
     ][, .SD[1], by = .(cube.symbol, stock.symbol)]
 cube.rb.first[, buy := ifelse(prev.weight.adjusted == 0 & target.weight != 0, 1, 0)
@@ -119,7 +119,7 @@ cube.rb.first.second <- cube.rb.first[buy == 0
 cube.first.stock.list <- cube.rb.first.second[, .(first.stock.list = list(adjusted.stock.symbol)), by = .(cube.symbol, adjusted.date)]
 
 # 7.2 processing every stock symbol non-first trading per cube
-cube.rb.next <- f.cube.rb.mst.1803[cube.type == "SP", .(cube.symbol, target.weight, prev.weight.adjusted, stock.symbol, created.at)
+cube.rb.next <- f.cube.rb.sp.mst.1806[cube.type == "SP", .(cube.symbol, target.weight, prev.weight.adjusted, stock.symbol, created.at)
     ][order(cube.symbol, stock.symbol, created.at), .SD
     ][, .SD[-1], by = .(cube.symbol, stock.symbol)]
 # select those trading can't effect stock list
@@ -142,19 +142,16 @@ cube.rb.sell <- cube.rb[sell == 1, .(stock.list = list(stock.symbol)), keyby = .
 
 # combining three sets to calculate holding stock list
 stock.info1 <- cube.first.stock.list[cube.rb.sell[cube.rb.buy[ret.filtered1, on = .(cube.symbol, date), roll = T], on = .(cube.symbol, date), roll = T], on = .(cube.symbol)]
-stock.info1[, stock.list := {
-    l <- list()
-    for (i in 1:.N) {
-        l[[i]] <- setdiff(union(first.stock.list[[i]], stock.list.buy[[i]]), stock.list.sell[[i]]) #%>% list()
-    }
-    l
-}]
+
+stock.info1 <- stock.info1[,
+    .(stock.list = which(table(c(unlist(first.stock.list), unlist(stock.list.buy), unlist(stock.list.sell))) %% 2 != 0) %>% names() %>% list(), adjusted.date, follow.date, value, stage, pre.period, post.follow), by = .(cube.symbol, date)
+]
 
 f.main1 <- stock.info1[, .(cube.symbol, date, adjusted.date, follow.date, value, stage, pre.period, post.follow, stock.list)]
 stock.info1 <- stock.info1[, .(cube.symbol, date, adjusted.date, first.stock.list, stock.list.sell, stock.list.buy, stock.list)]
 sv(stock.info1, svname = "stock.info1")
 
-# Active day is generated
+# Active day is generated----
 f.main1[, active.day := 1:.N, by = .(cube.symbol)]
 f.main1 <- cube.rb.sp[f.main1, on = .(cube.symbol, date), roll = T]
 f.main1 <- mmt[f.main1, on = .(date)]

@@ -1,9 +1,12 @@
-ld(f.hold.price, T)
+styleer::ld(f.hold.price)
+library(data.table)
+library(stringr)
+library(zoo)
 # choose all of the A stocks from SH&SZ
 f.a.stock<- f.hold.price[nchar(stock.symbol) > 5]
 save(f.a.stock, file = "f.a.stock.Rdata")
 
-ld(f.a.stock, T)
+load(file = "f.a.stock.Rdata")
 # generate a stock.code list that download closed price 
 a <- f.a.stock[nchar(stock.symbol) > 5, .(unique(stock.symbol))
     ][, stck := str_extract(V1, "([0-9]+)")]
@@ -11,20 +14,22 @@ stck <- list(a[, formatC(stck, flag = '0', width = 6)])
 fwrite(stck, file = "stck.csv", col.names = F)
 
 # Binding two download tabs
-sp.rb.dl1 <- fread("TRD_Dalyr.csv", header = T, sep = ',', encoding = 'UTF-8')
+sp.rb.dl1 <- fread("C:/Users/MrStylee/source/repos/STN-DE/01-LnAcpt/Clprc/TRD_Dalyr.txt", header = T, sep = '\t', encoding = 'UTF-8')
 sp.rb.dl1[, ":="(stck = (formatC(Stkcd, flag = '0', width = 6)), date = as.Date(Trddt))
     ][, ":="(Trddt = NULL, Stkcd = NULL)]
-sp.rb.dl2 <- fread("TRD_Dalyr1.csv", header = T, sep = ',', encoding = 'UTF-8')
+sp.rb.dl2 <- fread("C:/Users/MrStylee/source/repos/STN-DE/01-LnAcpt/Clprc/TRD_Dalyr1.txt", header = T, sep = '\t', encoding = 'UTF-8')
 sp.rb.dl2[, ":="(stck = (formatC(Stkcd, flag = '0', width = 6)), date = as.Date(Trddt))
     ][, ":="(Trddt = NULL, Stkcd = NULL)]
 sp.rb.dl <- rbindlist(list(sp.rb.dl1, sp.rb.dl2)) %>% as.data.table()
 rm(sp.rb.dl1, sp.rb.dl2)
 
-f.a.stock[, ':='(stck = str_extract(stock.symbol, "([0-9]+)"), date = as.Date(created.at))]
+f.a.stock[, ':='(stck = str_extract(stock.symbol, "([0-9]+)"), date = as.Date(created.at))
+    ][, issale := fifelse(prev.weight.adjusted > target.weight, 1, 0)]
 
 # filling all of the omitting date with no trades
 CJ <- f.a.stock[order(cube.symbol, stck, created.at)
-    ][, .(date = seq(as.Date(min(created.at)), as.Date(max(created.at)), by = 'day')), keyby = .(cube.symbol, stck)]
+    ][, .(date = seq(as.Date(min(created.at)), as.Date(max(created.at)), by = 'day')), keyby = .(cube.symbol, stck)
+    ]
 
 sp.rb.cj <- f.a.stock[CJ, on = .(cube.symbol, stck, date), nomatch = NA
     ][order(cube.symbol, stck, date)]
