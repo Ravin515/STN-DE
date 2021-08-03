@@ -9,6 +9,11 @@ Project("{DA7A21FA-8162-4350-AD77-A8D1B671F3ED}") = "02-Profit", "02-Profit\02-P
 EndProject
 Project("{DA7A21FA-8162-4350-AD77-A8D1B671F3ED}") = "03-Stratgy", "03-Stratgy\03-Stratgy.rxproj", "{906690E3-A191-40F8-B617-79121D053274}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{ABBBB4F1-D38C-4C9E-9894-C5AF7B775BD1}"
+	ProjectSection(SolutionItems) = preProject
+		README.md = README.md
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU

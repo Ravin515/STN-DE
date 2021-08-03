@@ -64,7 +64,7 @@ f.fifo.main1 <- f.fifo.main1[, .SD, .SDcols = -c("stock.symbol", "tag.hold", "fo
 ld(f.rb.followers.followings)
 #f.rb.followers.followings[, uniqueN(.SD), .SDcols = c("from.cube.symbol", "from.created.at", "to.cube.symbol")]
 f.rb.ff <- f.rb.followers.followings[, time.interval := difftime(from.created.at, to.created.at, units = "days")
-    ][time.interval < 30, unique(.SD)
+    ][time.interval < 28, unique(.SD)
     ][, .SD[time.interval == min(time.interval)], by = .(from.cube.symbol, from.created.at, to.stock.symbol)
     ][from.cube.symbol %in% unique(f.main1$cube.symbol), .SD]
 
@@ -144,15 +144,15 @@ ret.post.follow.trd[, felm(ret.daily.aver - rf ~ mkt_rf + smb + hml + umd + rmw 
 ## 最后构建相同投资者在相同时间买入的其他持仓组合在同一时间持仓的交易组合
 
 ## 提取出non-follow-trading，建立portfolio，根据全时间样本
-position.post.non.follow.trd <- f.fifo.position.all[(follow.trd == 0 & post.follow.full == 1), .SD
-    ][cube.symbol %in% unique(position.post.follow.trd$cube.symbol), .SD
-    ][date %in% unique(position.post.follow.trd$date), .SD
-    ][order(date), .SD]
+#position.post.non.follow.trd <- f.fifo.position.all[(follow.trd == 0 & post.follow.full == 1), .SD
+    #][cube.symbol %in% unique(position.post.follow.trd$cube.symbol), .SD
+    #][date %in% unique(position.post.follow.trd$date), .SD
+    #][order(date), .SD]
 
-ret.post.non.follow.trd <- position.post.non.follow.trd[ret.daily > -0.1 & ret.daily < 0.1, .SD
-    ][, .(ret.daily.aver = mean(ret.daily), rf, mkt_rf, smb, hml, umd, rmw, cma), by = .(date)
-    ][, unique(.SD)]
-ret.post.non.follow.trd[, felm(ret.daily.aver - rf ~ mkt_rf + smb + hml + umd + rmw + cma)] %>% summary()
+#ret.post.non.follow.trd <- position.post.non.follow.trd[ret.daily > -0.1 & ret.daily < 0.1, .SD
+    #][, .(ret.daily.aver = mean(ret.daily), rf, mkt_rf, smb, hml, umd, rmw, cma), by = .(date)
+    #][, unique(.SD)]
+#ret.post.non.follow.trd[, felm(ret.daily.aver - rf ~ mkt_rf + smb + hml + umd + rmw + cma)] %>% summary()
 
 ## 提取出non-follow-trading，建立portfolio，根据每一个cube的时间窗口
 position.post.non.follow.trd.cube <- f.fifo.position.all[follow.trd == 1 | post.follow.full == 1, .SD
@@ -180,7 +180,7 @@ position.post.follow.trd.cube.date <- f.fifo.position.all[follow.trd == 1 | post
     ][order(cube.symbol, stock.symbol.tag, date), .SD
     ][, period := .N, by = .(cube.symbol, stock.symbol.tag) # 计算每个仓位的持有时间
     ][, .SD[uniqueN(stock.symbol.tag) > 1 & length(follow.trd[follow.trd == 0]) > 0], by = .(cube.symbol, first.date) # 将每个cube中建仓时间相同的仓位提取出来
-    ][, .SD[(.SD[follow.trd == 1, uniqueN(stock.symbol.tag)] - .SD[follow.trd == 0, uniqueN(stock.symbol.tag)]) %between% c(0, 2)], by = .(cube.symbol, first.date) # 挑选那些同一天的建仓时间follow.trd的仓位相比于non-follow的仓位数量相同的那些交易
+    ][, .SD[(.SD[follow.trd == 1, uniqueN(stock.symbol.tag)] - .SD[follow.trd == 0, uniqueN(stock.symbol.tag)]) %between% c(0, 5)], by = .(cube.symbol, first.date) # 挑选那些同一天的建仓时间follow.trd的仓位相比于non-follow的仓位数量相同的那些交易
     ][, min.period := min(period), by = .(cube.symbol, first.date) # 计算相同建仓时间的仓位最小的持有时间
     ][, .SD[1:unique(min.period)], by = .(cube.symbol, stock.symbol.tag)
     ]
@@ -209,14 +209,14 @@ ret.post.non.follow.trd.cube.date[, felm(ret.daily.aver - rf ~ mkt_rf + smb + hm
 # 最后建立同一个cube持有follow.trd相同股票在pre-follow阶段的持仓
 
 # 提取出pre-follow阶段所有的交易，建立portfolio
-position.pre.follow.trd <- f.fifo.position.all[post.follow.full == 0, .SD
-    ][cube.symbol %in% unique(position.post.follow.trd$cube.symbol), .SD
-    #][date %in% unique(position.post.follow.trd$date), .SD
-    ][order(date), .SD]
-ret.pre.follow.trd <- position.pre.follow.trd[ret.daily > -0.1 & ret.daily < 0.1, .SD
-    ][, .(ret.daily.aver = mean(ret.daily), rf, mkt_rf, smb, hml, umd, rmw, cma), by = .(date)
-    ][, unique(.SD)]
-ret.pre.follow.trd[, felm(ret.daily.aver - rf ~ mkt_rf + smb + hml + umd + rmw + cma)] %>% summary()
+#position.pre.follow.trd <- f.fifo.position.all[post.follow.full == 0, .SD
+    #][cube.symbol %in% unique(position.post.follow.trd$cube.symbol), .SD
+    ##][date %in% unique(position.post.follow.trd$date), .SD
+    #][order(date), .SD]
+#ret.pre.follow.trd <- position.pre.follow.trd[ret.daily > -0.1 & ret.daily < 0.1, .SD
+    #][, .(ret.daily.aver = mean(ret.daily), rf, mkt_rf, smb, hml, umd, rmw, cma), by = .(date)
+    #][, unique(.SD)]
+#ret.pre.follow.trd[, felm(ret.daily.aver - rf ~ mkt_rf + smb + hml + umd + rmw + cma)] %>% summary()
 
 # 提取出在pre-follow阶段持仓与follow.trd阶段持有相同股票的持仓
 position.pre.follow.trd.stk <- f.fifo.position.all[post.follow.full == 0, .SD
@@ -260,4 +260,71 @@ ret.post.follow.trd.stk.cube <- position.post.follow.trd.stk.cube[ret.daily > -0
     ][, unique(.SD)]
 ret.post.follow.trd.stk.cube[, felm(ret.daily.aver - rf ~ mkt_rf + smb + hml + umd + rmw + cma)] %>% summary()
 
-# 1.6 画图 ----
+# 1.6 Newey west t-test ----
+# 1.6.1 择股portfolio对比
+# ret.post.follow.trd与ret.post.non.follow.trd.cube
+lm((ret.post.follow.trd[, ret.daily.aver] - ret.post.non.follow.trd.cube[, ret.daily.aver]) ~ 1) %>% lmtest::coeftest()
+# ret.post.follow.trd.cube.date与ret.post.non.follow.trd.cube.date
+lm((ret.post.follow.trd.cube.date[, ret.daily.aver] - ret.post.non.follow.trd.cube.date[, ret.daily.aver]) ~ 1) %>% lmtest::coeftest()
+
+# 1.6.2 择时portfolio对比
+# ret.post.follow.trd与ret.pre.follow.trd.stk
+lm((ret.post.follow.trd[, ret.daily.aver] - ret.pre.follow.trd.stk[, ret.daily.aver]) ~ 1) %>% lmtest::coeftest()
+# ret.pre.follow.trd.stk.cube与ret.post.follow.trd.stk.cube
+lm((ret.post.follow.trd.stk.cube[, ret.daily.aver] - ret.pre.follow.trd.stk.cube[, ret.daily.aver]) ~ 1) %>% lmtest::coeftest()
+
+# 1.7 画图 ----
+# 导入沪深300日度指数
+url <- str_c(getwd(), "/data/Index")
+index <- fbread(path = url, pattern = "*\\d.txt")
+index <- index[, file_id := NULL
+    ][Indexcd == "000300"
+    ][, ':='(index_ret = Idxtrd08 / 100, index_value = Idxtrd05, date = as.Date(Idxtrd01))
+    ][date %in% ret.post.follow.trd[, unique(date)], .SD
+    ][, times := 1 + index_ret
+    ][, value.daily := cumprod(times)]
+
+# 1.7.1 择股portfolio对比
+# ret.post.follow.trd与ret.post.non.follow.trd.cube
+ret.post.follow.trd[, times := 1 + ret.daily.aver
+    ][, value.daily := cumprod(times)]
+ret.post.non.follow.trd.cube[, times := 1 + ret.daily.aver
+    ][, value.daily := cumprod(times)]
+ggplot() +
+    geom_line(ret.post.follow.trd, mapping = aes(x = date, y = value.daily), color = "blue", size = 1) +
+    geom_line(ret.post.non.follow.trd.cube, mapping = aes(x = date, y = value.daily), color = "red", size = 1) +
+    geom_line(index, mapping = aes(x = date, y = value.daily), color = "black", size = 1)
+
+# ret.post.follow.trd.cube.date与ret.post.non.follow.trd.cube.date
+ret.post.follow.trd.cube.date[, times := 1 + ret.daily.aver
+    ][, value.daily := cumprod(times)]
+ret.post.non.follow.trd.cube.date[, times := 1 + ret.daily.aver
+    ][, value.daily := cumprod(times)]
+
+ggplot() +
+    geom_line(ret.post.follow.trd.cube.date, mapping = aes(x = date, y = value.daily), color = "blue", size = 1) +
+    geom_line(ret.post.non.follow.trd.cube.date, mapping = aes(x = date, y = value.daily), color = "red", size = 1) +
+    geom_line(index, mapping = aes(x = date, y = value.daily), color = "black", size = 1)
+
+# 1.7.2 择时portfolio对比
+# ret.post.follow.trd与ret.pre.follow.trd.stk
+ret.post.follow.trd[, times := 1 + ret.daily.aver
+    ][, value.daily := cumprod(times)]
+ret.pre.follow.trd.stk[, times := 1 + ret.daily.aver
+    ][, value.daily := cumprod(times)]
+
+ggplot() +
+    geom_line(ret.post.follow.trd, mapping = aes(x = date, y = value.daily), color = "blue", size = 1) +
+    geom_line(ret.pre.follow.trd.stk, mapping = aes(x = date, y = value.daily), color = "red", size = 1) +
+    geom_line(index, mapping = aes(x = date, y = value.daily), color = "black", size = 1)
+
+# ret.pre.follow.trd.stk.cube与ret.post.follow.trd.stk.cube
+ret.pre.follow.trd.stk.cube[, times := 1 + ret.daily.aver
+    ][, value.daily := cumprod(times)]
+ret.post.follow.trd.stk.cube[, times := 1 + ret.daily.aver
+    ][, value.daily := cumprod(times)]
+
+ggplot() +
+    geom_line(ret.post.follow.trd.stk.cube, mapping = aes(x = date, y = value.daily), color = "blue", size = 1) +
+    geom_line(ret.pre.follow.trd.stk.cube, mapping = aes(x = date, y = value.daily), color = "red", size = 1) +
+    geom_line(index, mapping = aes(x = date, y = value.daily), color = "black", size = 1)

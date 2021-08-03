@@ -192,3 +192,118 @@ rm(list = ls())
     #, keyby = .(cube.symbol, stock.symbol)
     #]
 #sv(f.hold.price, svname = "f.hold.price")
+
+# 重新看待生存分析图----
+library(styleer)
+ld(f.hold.price.1806, force = T)
+ld(f.main2, force = T)
+ld(f.main1, force = T)
+f.hold.price.1806 <- f.main2[, .(close.date = max(date)), by = .(cube.symbol)
+    ][f.hold.price.1806, on = .(cube.symbol)
+    ][!is.na(close.date), .SD
+    ][, stock.symbol := str_sub(stock.symbol, start = 3L, end = 8L)
+    ][, date := as.Date(created.at)
+    ][order(cube.symbol, stock.symbol, created.at), .SD
+    ][, .SD[.N], by = .(cube.symbol, stock.symbol, date)
+    ][, end.date := fifelse(target.weight[.N] == 0, date[.N], unique(close.date)), by = .(cube.symbol, stock.symbol)]
+
+date.cj <- f.hold.price.1806[, .(date = seq(date[1], unique(end.date), by = "day")), by = .(cube.symbol, stock.symbol)]
+f.position <- f.hold.price.1806[, .(cube.symbol, stock.symbol, date, created.at, prev.weight.adjusted, target.weight, price)
+    ][date.cj, on = .(cube.symbol, stock.symbol, date)]
+f.position <- f.hold.price.1806[, .(cube.symbol, stock.symbol, date, hold.price)
+    ][f.position, on = .(cube.symbol, stock.symbol, date), roll = T]
+
+clsprc <- fbread(path = str_c(getwd(), "/data/Clprc"), pattern = "*.txt")
+
+f.surv <- clsprc[, .(stock.symbol = str_pad(Stkcd, 6, "left", pad = "0"), Clsprc, date = Trddt)
+    ][f.position, on = .(stock.symbol, date), nomatch = 0]
+f.surv.clean <- f.surv[, tag := fifelse(hold.price == 0, 1, 0)
+    ][, tag2 := fifelse(tag == 1 & shift(tag, type = "lag") == 0, 1, 0), by = .(cube.symbol, stock.symbol)
+    ][!(tag == 1 & tag2 == 0), .SD
+    ][, ":="(tag = NULL, tag2 = NULL)
+    ][, issale := fifelse(hold.price == 0, 1, 0)
+    ][cube.symbol %in% f.main1$cube.symbol, .SD]
+
+f.surv.flw <- f.main1[, .(follow.date = unique(follow.date)), by = .(cube.symbol)
+    ][f.surv.clean, on = .(cube.symbol)]
+f.surv.flw[, pre.follow := fifelse(date < follow.date, 1, 0), by = .(cube.symbol)
+    ][, post.follow := fifelse(date >= follow.date, 1, 0), by = .(cube.symbol)
+    ][, gain := fcase(issale == 1 & price >= shift(hold.price, type = "lag"), 1,
+                           issale == 1 & price < shift(hold.price, type = "lag"), 0,
+                           issale == 0 & hold.price >= Clsprc, 0,
+                           issale == 0& hold.price < Clsprc, 1)
+    ][gain == 1 & pre.follow == 1, state := "盈利股票 (pre-follow)"
+    ][gain == 0 & pre.follow == 1, state := "亏损股票 (pre-follow)"
+    ][gain == 1 & post.follow == 1, state := "盈利股票 (post-follow)"
+    ][gain == 0 & post.follow == 1, state := "亏损股票 (post-follow)"
+    ][, hold.period := date - min(date), by = .(cube.symbol, stock.symbol)
+    ][, pre.period := follow.date - min(date), by = .(cube.symbol)]
+
+gg.main <- survfit(Surv(hold.period, issale) ~ state, data = f.surv.flw[hold.period < 200 & (pre.follow == 1 | (post.follow == 1 & date - as.Date(follow.date) <= pre.period))])
+
+d.main <- ggsurv(gg.main,
+                             lty.est = c(1, 1, 4, 4),
+                             surv.col = c("#CC6666", "#7777DD", "#CC6666", "#7777DD"),
+                             plot.cens = F,
+                             xlab = "持有时间 (日)",
+                             ylab = "剩余持仓数量的比例",
+                             main = "",
+                             size.est = 0.5,
+                             order.legend = T
+                            ) +
+                            #geom_smooth() +
+                            theme(
+                                    #panel.background = element_rect(fill = "grey"),
+                                    #panel.border = element_rect(linetype = 1, fill = NA),
+                                    axis.line = element_line(linetype = 1),
+                                    legend.title = element_blank(),
+                                    legend.position = "bottom",
+                                    legend.spacing.x = unit(0.1, 'cm'),
+                                    legend.spacing.y = unit(2, 'cm'),
+                                    legend.box = "horizontal",
+                                    legend.box.background = element_rect(size = 1, colour = "black", fill = "white"),
+                                    legend.key = element_rect(size = 0.5, colour = "black", fill = "white"),
+                                    legend.key.size = unit(0.5, 'cm')
+                                    )
+
+ggsave("4-2.tiff", device = "tiff", dpi = 300, width = 6.67, height = 5)
+
+# 重新回归前后处置效应图
+library(styleer)
+ld(sample1)
+ld(sample2)
+f.rbst1.early <- sample1[pre.follow == 1]
+f.rbst1.late <- sample1[post.follow == 1 & date - as.Date(follow.date) <= pre.period]
+DEbeta.e <- f.rbst1.early[, .(pre.follow = glm(sale ~ gain, family = binomial, maxit = 10) %>% coef()), by = .(cube.symbol)
+    ][, .SD[2], by = .(cube.symbol)]
+DEbeta.l <- f.rbst1.late[, .(post.follow = glm(sale ~ gain, family = binomial, maxit = 10) %>% coef()), by = .(cube.symbol)
+    ][, .SD[2], by = .(cube.symbol)]
+DEbeta <- DEbeta.e[DEbeta.l, on = "cube.symbol"]
+ggDE <- melt(DEbeta[!is.na(pre.follow) & !is.na(post.follow)], id.vars = "cube.symbol", measure.vars = c("pre.follow", "post.follow"))
+setnames(ggDE, 2:3, c("Stage", "DE"))
+ggDE[, Stage := as.character(Stage)
+    ][, Stage := ifelse(Stage == "pre.follow", "pre-follow", "post-follow")]
+rm(DEbeta, DEbeta.e, DEbeta.l, f.rbst1.early, f.rbst1.late)
+
+d.ttest <- ggplot(ggDE, aes(x = DE, colour = Stage, fill = Stage)) +
+                            geom_line(stat = "density", size = 1) +
+                            theme_grey() +
+                            scale_colour_manual(values = c("#CC6666", "#7777DD")) +
+                            labs(x = "处置效应", y = "比例（%）") +
+                            scale_fill_manual(values = c("#CC6666", "#7777DD"),
+                                                        name = "Stage",
+                                                        breaks = c("post.follow", "pre.follow"),
+                                                        labels = c("Post-follow", "Pre-follow")) +
+                                                        theme(
+                                    axis.line = element_line(linetype = 1),
+                                    legend.title = element_blank(),
+                                    #panel.border = element_rect(linetype = 1, fill = NA),
+                                    legend.position = "bottom",
+                                    legend.spacing.x = unit(0.1, 'cm'),
+                                    legend.spacing.y = unit(2, 'cm'),
+                                    legend.box = "horizontal",
+                                    legend.box.background = element_rect(size = 1, colour = "black", fill = "white"),
+                                    legend.key = element_rect(size = 0.5, colour = "black", fill = "white"),
+                                    legend.key.size = unit(0.5, 'cm')
+                                    )
+ggsave("4-3.tiff", device = "tiff", dpi = 300, width = 6.67, height = 5)
