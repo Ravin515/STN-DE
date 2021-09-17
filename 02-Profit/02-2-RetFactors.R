@@ -105,17 +105,11 @@ outlier <- f.full.daily[ret <= -0.1 | ret >= 0.1, unique(cube.symbol)]
 #f.full.daily <- f.main2[, .(cube.symbol, date, follow.date)
 #][f.full.daily, on = .(cube.symbol, date), nomatch = 0
 #][, post.follow := fifelse(is.na(follow.date), 0, fifelse(date < follow.date, 0, 1))]
+
+# 个体角度的图
 alpha.full.sample <- f.full.daily[, .SD[.N > 90], by = .(cube.symbol)
     ][!(cube.symbol %in% outlier), .(coef.cube = lm(I((ret - rf)*100) ~ mkt_rf + smb + hml + umd + rmw + cma) %>% coef()), by = .(cube.symbol)
     ][, .SD[1], by = .(cube.symbol)]
-
-#alpha.follow <- f.full.daily[, .SD[.N > 90], by = .(cube.symbol)
-    #][!(cube.symbol %in% outlier) & (cube.symbol %in% f.main2$cube.symbol), .(coef.cube = lm(ret - rf ~ mkt_rf + smb + hml + umd + rmw + cma) %>% coef()), by = .(cube.symbol)
-    #][, .SD[1], by = .(cube.symbol)]
-
-#alpha.non.follow <- f.full.daily[, .SD[.N > 90], by = .(cube.symbol)
-    #][!(cube.symbol %in% outlier) & !(cube.symbol %in% f.main2$cube.symbol), .(coef.cube = lm(ret - rf ~ mkt_rf + smb + hml + umd + rmw + cma) %>% coef()), by = .(cube.symbol)
-    #][, .SD[1], by = .(cube.symbol)]
 
 ggplot() +
     geom_histogram(alpha.full.sample, mapping = aes(x = coef.cube), stat = "density", color = "black", size = 1, adjust = 3) +
@@ -123,7 +117,7 @@ ggplot() +
     theme(
                                     axis.line = element_line(linetype = 1),
                                     legend.title = element_blank(),
-                                    #panel.border = element_rect(linetype = 1, fill = NA),
+#panel.border = element_rect(linetype = 1, fill = NA),
                                     legend.position = "bottom",
                                     legend.spacing.x = unit(0.1, 'cm'),
                                     legend.spacing.y = unit(2, 'cm'),
@@ -133,6 +127,51 @@ ggplot() +
                                     legend.key.size = unit(0.5, 'cm')
                                     )
 ggsave("5.1.tiff", device = "tiff", dpi = 300, width = 6.67, height = 5)
+
+# 时间角度的图
+# 因子回归
+#alpha.daily.sample <- f.full.daily[, .SD[.N > 90], by = .(cube.symbol)
+    #][, .SD[.N > 20], by = .(date)
+    #][order(cube.symbol, date), .SD
+    #][, tag := 1:.N, by = .(cube.symbol)
+    ##][, date.month := str_c(year(date), str_sub(date, start = 6L, end = 7L))
+    ##][, date.week := str_c(year(date), str_pad(week(date), 2, "left", pad = "0"))
+    #][!(cube.symbol %in% outlier), .(coef.cube =lm(I((ret - rf) * 100) ~ mkt_rf + smb + hml + umd + rmw + cma, singular.ok = T) %>% coef()), by = .(tag)
+    #][, .SD[1], by = .(tag)
+    #][coef.cube %between% c(-1, 1), .SD]
+
+# 收益率相减
+alpha.daily.sample <- index[, .(index_ret, date)
+    ][f.full.daily[!(cube.symbol %in% outlier), .SD], on = .(date)
+    ][, coef.cube := (ret - index_ret)
+    ][, .(coef.cube = mean(coef.cube, na.rm = T)), by = .(date)
+    ][coef.cube < 0.02, .SD]
+
+ggplot() +
+    geom_histogram(alpha.daily.sample, mapping = aes(x = coef.cube), stat = "density", color = "black", size = 1, adjust = 3) +
+    labs(x = "超额收益率（收益率与沪深300收益率之差）", y = "比例（%）") +
+    theme(
+                                    axis.line = element_line(linetype = 1),
+                                    legend.title = element_blank(),
+#panel.border = element_rect(linetype = 1, fill = NA),
+                                    legend.position = "bottom",
+                                    legend.spacing.x = unit(0.1, 'cm'),
+                                    legend.spacing.y = unit(2, 'cm'),
+                                    legend.box = "horizontal",
+                                    legend.box.background = element_rect(size = 1, colour = "black", fill = "white"),
+                                    legend.key = element_rect(size = 0.5, colour = "black", fill = "white"),
+                                    legend.key.size = unit(0.5, 'cm')
+                                    )
+ggsave("5.1.1.tiff", device = "tiff", dpi = 300, width = 6.67, height = 5)
+
+#alpha.follow <- f.full.daily[, .SD[.N > 90], by = .(cube.symbol)
+    #][!(cube.symbol %in% outlier) & (cube.symbol %in% f.main2$cube.symbol), .(coef.cube = lm(ret - rf ~ mkt_rf + smb + hml + umd + rmw + cma) %>% coef()), by = .(cube.symbol)
+    #][, .SD[1], by = .(cube.symbol)]
+
+#alpha.non.follow <- f.full.daily[, .SD[.N > 90], by = .(cube.symbol)
+    #][!(cube.symbol %in% outlier) & !(cube.symbol %in% f.main2$cube.symbol), .(coef.cube = lm(ret - rf ~ mkt_rf + smb + hml + umd + rmw + cma) %>% coef()), by = .(cube.symbol)
+    #][, .SD[1], by = .(cube.symbol)]
+
 
 #f.full.daily[(cube.symbol %in% f.main2$cube.symbol) & !(cube.symbol %in% outlier), lm(ret - rf ~ mkt_rf + smb + hml + umd + rmw + cma)] %>% summary()
 #f.full.daily[(cube.symbol %in% f.main2$cube.symbol) & !(cube.symbol %in% outlier), rq(ret - rf ~ mkt_rf + smb + hml + umd + rmw + cma, tau = 0.5, method = "pfn")] %>% summary()

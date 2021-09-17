@@ -268,7 +268,7 @@ d.main <- ggsurv(gg.main,
 
 ggsave("4-2.tiff", device = "tiff", dpi = 300, width = 6.67, height = 5)
 
-# 重新回归前后处置效应图
+# 加入1806的数据重新回归前后处置效应图----
 library(styleer)
 ld(sample1)
 ld(sample2)
@@ -307,3 +307,124 @@ d.ttest <- ggplot(ggDE, aes(x = DE, colour = Stage, fill = Stage)) +
                                     legend.key.size = unit(0.5, 'cm')
                                     )
 ggsave("4-3.tiff", device = "tiff", dpi = 300, width = 6.67, height = 5)
+
+# 稳健性检验----
+# 1.1 样本外样本的kaplan-meier曲线
+library(styleer)
+ld(f.hold.price.1806, force = T)
+ld(f.main2, force = T)
+clsprc <- fbread(path = str_c(getwd(), "/data/Clprc"), pattern = "*.txt")
+f.hold.price.1806[, date := as.Date(created.at)
+    ]
+position <- f.hold.price.1806[, .(cube.symbol, date, stock.symbol, hold.price, price)
+    ][order(cube.symbol, stock.symbol, date), .SD
+    ][f.hold.price.1806[, .(date = seq(from = min(date), to = max(date), by = "day")), by = .(cube.symbol, stock.symbol)
+    ], on = .(cube.symbol, stock.symbol, date), roll = T
+    ][, stock.symbol := str_sub(stock.symbol, start = 3L, end = 8L)]
+
+f.surv <- clsprc[, .(stock.symbol = str_pad(Stkcd, 6, "left", pad = "0"), Clsprc, date = Trddt)
+    ][position, on = .(stock.symbol, date), nomatch = 0]
+
+f.surv.flw <- f.surv[, tag := fifelse(hold.price == 0, 1, 0)
+    ][, tag2 := fifelse(tag == 1 & shift(tag, type = "lag") == 0, 1, 0), by = .(cube.symbol, stock.symbol)
+    ][!(tag == 1 & tag2 == 0), .SD
+    ][, ":="(tag = NULL, tag2 = NULL)
+    ][, issale := fifelse(hold.price == 0, 1, 0)
+    ][, social := fifelse(cube.symbol %in% f.main2$cube.symbol, 1, 0)
+    ][, gain := fcase(issale == 1 & price >= shift(hold.price, type = "lag"), 1,
+                           issale == 1 & price < shift(hold.price, type = "lag"), 0,
+                           issale == 0 & hold.price >= Clsprc, 0,
+                           issale == 0 & hold.price < Clsprc, 1)
+    ][gain == 1 & social == 1, state := "盈利股票 (Social)"
+    ][gain == 0 & social == 1, state := "亏损股票 (Social)"
+    ][gain == 1 & social == 0, state := "盈利股票 (Non-social)"
+    ][gain == 0 & social== 0, state := "亏损股票 (Non-social)"
+    ][, hold.period := date - min(date), by = .(cube.symbol, stock.symbol)
+    ]
+
+library(survival)
+library(GGally)
+gg.main <- survfit(Surv(hold.period, issale) ~ state, data = f.surv.flw[hold.period < 200])
+d.main <- ggsurv(gg.main,
+                             lty.est = c(1, 1, 4, 4),
+                             surv.col = c("#7777DD", "#CC6666", "#7777DD","#CC6666"),
+                             plot.cens = F,
+                             xlab = "持有时间 (日)",
+                             ylab = "剩余持仓数量的比例",
+                             main = "",
+                             size.est = 0.5,
+                             order.legend = T
+                            ) +
+                            #geom_smooth() +
+                            theme(
+#panel.background = element_rect(fill = "grey"),
+#panel.border = element_rect(linetype = 1, fill = NA),
+                                    axis.line = element_line(linetype = 1),
+                                    legend.title = element_blank(),
+                                    legend.position = "bottom",
+                                    legend.spacing.x = unit(0.1, 'cm'),
+                                    legend.spacing.y = unit(2, 'cm'),
+                                    legend.box = "horizontal",
+                                    legend.box.background = element_rect(size = 1, colour = "black", fill = "white"),
+                                    legend.key = element_rect(size = 0.5, colour = "black", fill = "white"),
+                                    legend.key.size = unit(0.5, 'cm')
+                                    )
+
+ggsave("4-3-1.tiff", device = "tiff", dpi = 300, width = 6.67, height = 5)
+
+# 1.2 logistic回归样本外样本
+library(texreg)
+library(alpaca)
+# 导入各类因子
+url <- str_c(getwd(), "/data/Factors/")
+file.names <- list.files(path = url, pattern = "*.txt|.csv")
+for (i in file.names) {
+    assign(str_sub(i, start = 1L, end = -5L), fread(str_c(url, toupper(i))))
+}
+
+f.surv.flw <- fivefactor_daily[, .(date = as.Date(trddy), umd = umd)
+    ][f.surv.flw, on = .(date)]
+
+# 计算累积的交易次数
+trd.num <- f.hold.price.1806[order(cube.symbol, date), .SD
+    ][, trd.num.daily := .N, by = .(cube.symbol, date)
+    ][, unique(.SD), .SDcols = c("cube.symbol", "date", "trd.num.daily")
+    ][, trd.num := cumsum(trd.num.daily), by = .(cube.symbol)]
+
+f.main.rbst <- trd.num[, .(cube.symbol, date, trd.num)
+    ][f.surv.flw, on = .(cube.symbol, date), roll = T]
+
+# 计算活跃天数
+f.main.rbst[, active.day := date - min(date), by = .(cube.symbol)]
+
+# 回归
+r1 <- f.main.rbst[social == 0, feglm(issale ~ gain | cube.symbol + hold.period + stock.symbol, .SD)]
+r2 <- f.main.rbst[social == 0, feglm(issale ~ gain + umd + active.day + trd.num | cube.symbol + hold.period + stock.symbol, .SD)]
+r3 <- f.main.rbst[social == 1, feglm(issale ~ gain | cube.symbol + hold.period + stock.symbol, .SD)]
+r4 <- f.main.rbst[social == 1, feglm(issale ~ gain + umd + active.day + trd.num | cube.symbol + hold.period + stock.symbol, .SD)]
+r5 <- f.main.rbst[, feglm(issale ~ gain + social + I(gain * social) | hold.period + stock.symbol, .SD)]
+r6 <- f.main.rbst[, feglm(issale ~ gain + social + I(gain * social) + umd + active.day + trd.num | hold.period + stock.symbol, .SD)]
+
+list(r1, r2, r3, r4, r5, r6) %>%
+    htmlreg(
+        file = "4.5.html",
+        custom.header = list("non-social"= 1:2,  "social"=3:4, "All"=5:6),
+        caption.above = TRUE,
+        include.rs = TRUE,
+        include.adjrs = FALSE,
+        custom.model.names = c("(1)", "(2)", "(3)", "(4)", "(5)", "(6)"),
+        custom.gof.rows = list("Trader FE" = c("Yes", "Yes", "Yes", "Yes", "Yes", "Yes"),
+        "Holding period FE" = c("Yes", "Yes", "Yes", "Yes", "Yes", "Yes"),
+        "Stock FE" = c("Yes", "Yes", "Yes", "Yes", "Yes", "Yes")),
+        custom.coef.names = c("gain", "Momentum", "Active.day", "Trade number", "social", "gain * social"),
+        reorder.coef = c(1, 5:6, 2:4),
+        digits = 3,
+        inline.css = FALSE,
+        doctype = TRUE,
+        html.tag = TRUE,
+        head.tag = TRUE,
+        body.tag = TRUE,
+        center = FALSE,
+        indentation = "",
+        table.margin = 0
+            )
